@@ -14,12 +14,12 @@ I made it to learn how programming languages work and how to make a language spe
 
 # Run Scripts/cupshell:
 
-python3 cup.py or python3 cup.py <filename>
+    python3 cup.py or python3 cup.py <filename>
 
-For Windows:
-python cup.py or python cup.py <filename>
+    For Windows:
+    python cup.py or python cup.py "filename"
 
-run file from cupshell: Run("<filename>")
+    run file from cupshell: Run("filename")
 
 
 # Syntax
@@ -33,7 +33,8 @@ Examples can be found in the the [example.cup](https://github.com/Fus3n/cupscrip
 
 ```ruby
 print("Hello World")
-# expressions
+# comments
+
 print(1 + 2)
 print(1 - 2)
 print(1 * 2)
