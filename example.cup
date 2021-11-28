@@ -1,0 +1,194 @@
+# examples CupScript
+
+# help() in shell shows all builtin functions
+
+# global types/ reserved variables
+# int, str, function, float
+
+
+######## Display #########
+print("Hello world!");
+var s = sets("hello");
+# var name = gets("promp user: ") # prompt input
+
+#clear(); # clear terminal 
+
+# exit() #exit script
+
+
+######## strings/variables #########
+
+
+var string1 = "Hello"
+var sep = ", "
+var string2 = "world"
+
+var temp =  string1 + sep + string2
+
+######## function #########
+
+
+func join_str(s1, s2, sep)
+	var res = append(s1, sep) + s2
+	# alternative: var res = s1 + sep + s2
+	return res
+end
+
+print(join_str(string1, string2, sep)) # >> Hello, world
+
+
+
+######## Lists #########
+
+
+var l1 = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10.5, true, false, "some text", join_str]
+print(l1) # >> 1, 2, 3, 4, 5, 6, 7, 8, 9, 10.5, 1, 0, some text, <function join_str>
+
+var third_elem = l1>2
+
+print(third_elem) # >> 3
+
+print(len(l1)) # >> 12
+
+var f = l1>len(l1) - 1 
+
+print(f) # >> <function join_str>
+
+print(f(string1, string2, " ...... ")) # >> Hello ...... world
+
+extend(l1, [1,2,3])
+
+print(l1) # >> 1, 2, 3, 4, 5, 6, 7, 8, 9, 10.5, 1, 0, some text, <function join_str>, 1, 2, 3
+
+append(l1, "end of list")
+
+print(l1>len(l1) - 1) # >> end of list
+
+
+######## Lists/function #########
+
+func join(elements, sep)
+	var res = ""
+
+	for i = 0 till len(elements) then
+		var d = elements>i
+		var res = res + d + if i == len(elements) - 1 then "" else sep # one liners XD
+	end
+
+	return res
+end
+
+var res = join(["Hello", "world"], ", ")
+print(res) # >> Hello, world
+
+######## bools/comparisons #########
+
+# booleans are just number 
+# false = 0
+# true = 1
+# null = 0
+
+
+# if statements are on same colmn with comments and without newline you have to put ';' otherwise its optional
+print(is_func(join)); # >> 1
+print(is_str(join)); # >> 0
+print(is_str("Hello")); # >> 1
+print(if is_num("1") == true then "true" else "false"); # >> false;
+print (1 > 2); # >> 0
+print(5 % 5 == 0); # >>  1
+print(5 % 5 == 0 and 5 % 3 == 0); # >> 0
+print(5 % 5 == 0 or 5 % 3 == 0); # >> 1
+
+
+
+######## if/elseif/else #########
+
+if 5 % 5 == 0 then 
+	print("yes")
+else        
+	print("nope")
+end
+#  >> yes  
+
+
+# fizzbuzz in CupScript
+
+for i = 0 till 100 then
+	if i % 3 == 0 and i % 5 == 0 then
+		print("fizzbuzz")
+	elseif i % 3 == 0 then
+		print("fizz")
+	elseif i % 5 == 0 then
+		print("buzz")
+	else
+		print(i)
+	end
+end
+# you already know the output its too big XD
+
+######## loops #########
+
+for i = 0 till 10 then
+	print(i);
+end
+
+
+for i = 0 till 6 step 2 then
+	print(i)
+end
+# >> 0
+# >> 2
+# >> 4
+
+var i = 0;
+
+while i != 5 then
+	print("Hello! " + tostr(i)); # 'tostr' converts i  to string 'toint' does opposite
+	var i = i + 1
+end
+
+
+######## other #########
+
+
+sleep(1); # sleep for 1 second
+print("hey i am back")
+
+print(get_now()); # get now equivalent to python's time.time()
+
+print(set_env("secrect", "secrect stuff")); # >> null
+
+print(get_env("secrect")); # >> "secrect stuff"
+
+print(get_dir()); # >> your working directory
+
+#print(set_dir()) # set your working directory
+
+print(random()); # get random 0 to 1 float
+
+print(rand_int(0, 100)); # random ranged int
+
+# rand_seed(4) #set seed
+
+print(rand_pick(["hello", 1, 2, 5])) # random pick for lists
+
+print(typeof(join)) # >> <function>
+
+######## File operation #########
+
+var f = File("test.txt")
+
+
+if not file_exists(f) then
+	# takes in a File or a string/filepath
+	print("file dosent exists creating and writing")
+	write_stream(f, "Whats Up") # creates file if dosent exists
+end
+
+print(read_stream(f)) # >> "Whats Up"
+
+# no need to close a stream its auto
+
+
+
+
