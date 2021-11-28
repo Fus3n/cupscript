@@ -150,7 +150,7 @@ end
 
 ######## other #########
 
-Run("<filename>") # run script
+# Run("<filename>") # run script
 
 sleep(1); # sleep for 1 second
 print("hey i am back")
