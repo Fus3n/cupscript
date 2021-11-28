@@ -150,6 +150,7 @@ end
 
 ######## other #########
 
+Run("<filename>") # run script
 
 sleep(1); # sleep for 1 second
 print("hey i am back")
@@ -187,7 +188,7 @@ end
 
 print(read_stream(f)) # >> "Whats Up"
 
-# no need to close a stream its auto
+# no need to close a stream 
 
 
 
