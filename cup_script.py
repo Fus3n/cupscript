@@ -4,7 +4,6 @@
 
 import string
 import os
-import math
 import time
 import random
 from datetime import datetime
@@ -1696,7 +1695,6 @@ class Number(Value):
 Number.null = Number(0)
 Number.false = Number(0)
 Number.true = Number(1)
-Number.math_PI = Number(math.pi)
 
 
 

@@ -2,7 +2,6 @@ import cup_script as cup
 import os
 import sys
 
-# bat python "F:\Python Random Scripts\cup (c^)\cup.py" %*
 args = sys.argv
 if not len(args) > 1:
     os.system('cls' if os.name == 'nt' else 'cls')
