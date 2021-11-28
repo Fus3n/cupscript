@@ -14,6 +14,7 @@ from datetime import datetime
 DIGITS = '0123456789'
 LETTERS = string.ascii_letters
 LETTERS_DIGITS = LETTERS + DIGITS
+VERSION = '0.1'
 
 position_start = None
 position_end = None
@@ -2505,6 +2506,32 @@ class BuiltInFunction(BaseFunction):
         return RTResult().success(String(helpMsg))
     execute_help.arg_names = []
 
+    def execute_sys(self, exec_ctx):
+        command = exec_ctx.symbol_table.get("command")
+
+        if not isinstance(command, String):
+            return RTResult().failure(RTError(
+                self.pos_start, self.pos_end,
+                "First argument for 'sys' must be a string",
+                exec_ctx
+            ))
+        
+        try:
+            os.system(command.value)
+        except Exception as e:
+            return RTResult().failure(RTError(
+                self.pos_start, self.pos_end,
+                f"Failed to execute '{command.value}'\n" + str(e),
+                exec_ctx
+            ))
+        
+        return RTResult().success(Null.null)
+    execute_sys.arg_names = ["command"]
+
+    def execute_version(self, exec_ctx):
+        return RTResult().success(String(VERSION))
+    execute_version.arg_names = []
+
 
 #######################################
 # SETUP VARIABLE FOR ALL BUILT IN FUNCTION
@@ -2542,6 +2569,8 @@ BuiltInFunction.rand_int = BuiltInFunction("rand_int")
 BuiltInFunction.rand_seed = BuiltInFunction("rand_seed")
 BuiltInFunction.rand_pick = BuiltInFunction("rand_pick")
 BuiltInFunction.help = BuiltInFunction("help")
+BuiltInFunction.sys = BuiltInFunction("sys")
+BuiltInFunction.version = BuiltInFunction("version")
 
 
 
@@ -2908,6 +2937,8 @@ global_symbol_table.set("rand_int", BuiltInFunction.rand_int)
 global_symbol_table.set("rand_seed", BuiltInFunction.rand_seed)
 global_symbol_table.set("rand_pick", BuiltInFunction.rand_pick)
 global_symbol_table.set("help", BuiltInFunction.help)
+global_symbol_table.set("sys", BuiltInFunction.sys)
+global_symbol_table.set("version", BuiltInFunction.version)
 
 
 #######################################
