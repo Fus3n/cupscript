@@ -1,3 +1,3 @@
 # cupscript 
 
-## CupScript is a simple programming language made in python
+### CupScript is a simple programming language made in python
