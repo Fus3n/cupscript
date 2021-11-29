@@ -14,8 +14,8 @@ var s = sets("hello");
 
 # var name = gets("promp user: ") # prompt input
 
-sys("") # system command
-version() # get current version of CupScript
+sys(""); # system command
+version(); # get current version of CupScript
 
 # clear(); # clear terminal 
 
