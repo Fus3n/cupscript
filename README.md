@@ -62,7 +62,7 @@ var b = 5
 
 var c = "Hello World"
 
-var b = b + a>0; # yes this is how you get element from list or a string in cs
+var b = b + a>0; # yes this is how you get element from list or a string in cs Semicolons are optional unless ur writing comments like this
 
 func add(a, b)
     return a + b
@@ -74,6 +74,21 @@ var f = add(a, b) -> a + b
 
 f(5, 5)
 
+```
+
+### Loops
+```ruby
+for i = 0 till 100 then
+	if i % 3 == 0 and i % 5 == 0 then
+		print("fizzbuzz")
+	elseif i % 3 == 0 then
+		print("fizz")
+	elseif i % 5 == 0 then
+		print("buzz")
+	else
+		print(i)
+	end
+end
 ```
 
 
