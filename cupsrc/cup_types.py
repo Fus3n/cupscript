@@ -40,7 +40,8 @@ class SymbolTable:
     def remove(self, name):
         del self.symbols[name]
 
-
+    def exists(self, value):
+        return True if value in self.symbols.values() else False
 
 
 class Object:
