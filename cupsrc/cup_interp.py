@@ -109,7 +109,7 @@ class BuiltInFunction(BaseFunction):
     execute_input.arg_names = ["prompt"]
 
     def execute_clear(self, exec_ctx):
-        os.system('cls' if os.name == 'nt' else 'cls')
+        os.system('cls' if os.name == 'nt' else 'clear')
         return RTResult().success(Null.null)
     execute_clear.arg_names = []
 

@@ -4,7 +4,7 @@ import sys
 
 args = sys.argv
 if not len(args) > 1:
-    os.system('cls' if os.name == 'nt' else 'cls')
+    os.system('cls' if os.name == 'nt' else 'clear')
     print("-" * 35)
     print(f"Cup Shell {VERSION} - Python {sys.version.split('(')[0]}")
     print("-" * 35)
