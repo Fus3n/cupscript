@@ -1,0 +1,14 @@
+
+func main()
+    # bmi calculator
+    name = gets("Please Enter your name: ")
+    weight = gets("Please Enter your weight: ")
+    height = gets("Please Enter your height: ")
+    bmi = toint(weight, true) / (tofloat(height, true) * tofloat(height, true))
+    print(name + "'s BMI is ".tostr(bmi))
+end
+
+
+if is_main then
+    main()
+end

@@ -1,0 +1,32 @@
+# examples CupScript
+
+# help() in shell shows all builtin functions
+
+# global types/ reserved variables
+# int, str, function, float
+
+# semicolons are optional
+
+######## Display #########
+
+print("Hello world!")
+var s = sets("hello")
+
+# var name = gets("promp user: ") # prompt input 
+2+2
+
+sys("") # system command
+version() # get current version of CupScript
+
+# clear() # clear terminal 
+
+# exit() #exit script
+
+
+######## strings/variables #########
+
+var string1 = "Hello"
+var sep = ", "
+var string2 = "world"
+
+var temp =  string1 + sep + string2

@@ -1,0 +1,23 @@
+
+######## if/elseif/else #########
+
+if 5 % 5 == 0 then 
+	print("yes")
+else        
+	print("nope")
+end
+#  >> yes  
+
+
+# fizzbuzz in CupScript
+for i = 0 till 50 do
+	if i % 3 == 0 and i % 5 == 0 then
+		print("fizzbuzz")
+	elif i % 3 == 0 then
+		print("fizz")
+	elif i % 5 == 0 then
+		print("buzz")
+	else
+		print(i)
+	end
+end

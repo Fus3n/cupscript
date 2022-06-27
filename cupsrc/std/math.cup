@@ -1,0 +1,15 @@
+# All things related to math 
+
+PI = 3.141592653589793238
+
+func degToRad(deg)
+    return deg * PI / 180.0;
+end
+
+func radToDeg(rad)
+    return rad * 180.0 / PI;
+end
+
+func add(a, b)
+    return a + b;
+end

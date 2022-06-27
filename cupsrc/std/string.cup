@@ -1,0 +1,16 @@
+# All string related functions for now its empty
+
+ascii_lowercase = "abcdefghijklmnopqrstuvwxyz"
+ascii_uppercase = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+ascii_letters = ascii_lowercase + ascii_uppercase
+digits = "0123456789"
+hexdigits = digits + "abcdef" + "ABCDEF"
+
+
+func reverse_string(inp)
+    res = ""
+    for i = len(inp)-1 till -1 step -1 do
+        res += (inp.i)
+    end
+    return res
+end

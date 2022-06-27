@@ -1,0 +1,45 @@
+
+######## other #########
+
+# Run("<filename>") # run script
+
+sleep(1) # sleep for 1 second
+print("hey i am back")
+
+print(get_now()) # get now equivalent to python's time.time()
+
+print(set_env("secrect", "secrect stuff")) # >> null
+
+print(get_env("secrect")) # >> "secrect stuff"
+
+print(get_dir())# >> your working directory
+
+#print(set_dir()) # set your working directory
+
+print(random()) # get random 0 to 1 float
+
+print(rand_int(0, 100)) # random ranged int
+
+# rand_seed(4) #set seed
+
+print(rand_pick(["hello", 1, 2, 5])) # random pick for lists
+
+print(typeof(join)) # >> <function>
+
+######## File operation #########
+
+var f = File("test.txt")
+
+
+if not file_exists(f) then
+	# takes in a File or a string/filepath
+	print("file dosent exists creating and writing")
+	write_stream(f, "Whats Up") # creates file if dosent exists
+end
+
+print(read_stream(f)) # >> "Whats Up"
+
+# no need to close a stream 
+
+
+

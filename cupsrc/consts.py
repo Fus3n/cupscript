@@ -1,4 +1,5 @@
 import string
+import os
 
 #######################################
 # CONSTANTS
@@ -8,7 +9,9 @@ DIGITS = string.digits
 LETTERS = string.ascii_letters
 LETTERS_DIGITS = LETTERS + DIGITS
 
-VERSION = '0.2.0'
+VERSION = '0.2.1'
+
+STD_PATH = os.path.join(os.getcwd(), 'cupsrc/std')
 
 
 #######################################
@@ -41,6 +44,7 @@ TT_COMMA = 'COMMA'
 TT_ARROW = 'ARROW'
 TT_NEWLINE = 'NEWLINE'
 TT_EOF = 'EOF'
+TT_DOT = 'DOT'
 
 KEYWORDS = [
     'var',
@@ -48,10 +52,11 @@ KEYWORDS = [
     'or',
     'not',
     'if',
-    'elseif',
+    'elif',
     'else',
     'for',
     'till',
+    'do',
     'step',
     'while',
     'func',
@@ -60,4 +65,235 @@ KEYWORDS = [
     'return',
     'continue',
     'break',
+    'import'
 ]
+
+helpMsg = """help - [
+            <builtin function>:
+                clear - clear the screen -> null
+                exit - exit the script: -> null
+                print - print a string or any object : string, <- null
+                sleep - sleep for a number of seconds : int
+                typeof - get the type of the object: int, string, list, func, null, bool, File
+                sets - print but also returns the value: sets("hello") -> "hello"
+                gets - input / prompt for a value and return it : args = string
+                is_num - check if the value is a number : args = any type -> bool
+                is_str - check if the value is a string : args = any type -> bool
+                is_list - check if the value is a list -> bool : args = any type -> bool
+                is_func - check if the value is a function : args = any type -> bool
+                append - append a string to a string or any value to a list: args = string, number -> list
+                extend - extend a list with another list: args = list, list -> list
+                len - get the length of a list or string: args = string, list -> int
+                File - open a file for reading or writing : File("file_name") to do file operations i.e. read_stream/write_stream
+                read_stream - read string from entire file: args = File
+                write_stream - write string to file: args = File, string
+                file_exists - check if file exists: args = string -> bool
+                sleep - sleep for a number of seconds: args = int -> null
+                tostr - convert any value to a string: args = any type -> string
+                toint - convert a String/Number value to an integer: args = string, number -> int
+                tofloat - convert a String/Number value to a float: args = string, number -> float
+                get_now - get the current time: -> int
+                get_env - get the value of an environment variable: string -> string
+                set_env - set an environment variable: string, string -> null
+                get_dir - get the current working directory: -> string
+                set_dir - set the current working directory: string -> null
+                random - get a random number: -> int
+                rand_int - get a random integer: -> int
+                rand_seed - set the random seed: int -> null
+                rand_pick - pick a random item from a list: list -> any
+                rand_range - get a random number between two values: int, int -> int
+                Run - run a cupscript file: Run("file_name")
+            <builtin types>:
+                int - integer : 123
+                string - string : "hello"
+                list - list : [string, int, list, func, null, bool]
+                func - function:  lambdas,  func name(arg1, arg2) -> arg1 + arg2
+                null - null: null = 0
+                bool - boolean : true, false, 1, 0
+
+            <lang rules>:
+                get index element from list: list_name>index
+                get index element from string: string_name>index
+
+    ]
+exit() - exit the shell 
+"""
+
+
+
+help_dict =  {
+    'clear': {
+        'args': '',
+        'text': 'clear the screen',
+        'returns': 'null'
+    },
+    'exit': {
+        'args': '',
+        'text': 'exit the script',
+        'returns': 'null'
+    },
+    'print': {
+        'args': 'string/object',
+        'text': 'print a string or any object',
+        'returns': 'string'
+    },
+    'sleep': {
+        'args': 'int',
+        'text': 'sleep for a number of seconds',
+        'returns': 'null'
+    },
+    'typeof': {
+        'args': 'any type',
+        'text': 'get the type of the object',
+        'returns': 'string'
+    },
+    'sets': {
+        'args': 'string',
+        'text': 'print but also returns the value',
+        'returns': 'string'
+    },
+    'gets': {
+        'args': 'string',
+        'text': 'input / prompt for a value and return it',
+        'returns': 'string'
+    },
+    'is_num': {
+        'args': 'any type',
+        'text': 'check if the value is a number object',
+        'returns': 'bool'
+    },
+    'is_str': {
+        'args': 'any type',
+        'text': 'check if the value is a string object',
+        'returns': 'bool'
+    },
+    'is_list': {
+        'args': 'any type',
+        'text': 'check if the value is a list object',
+        'returns': 'bool'
+    },
+    'is_func': {
+        'args': 'any type',
+        'text': 'check if the value is a function object',
+        'returns': 'bool'
+    },
+    'append': {
+        'args': 'string, string/list',
+        'text': 'append a string to a string or any value to a list',
+        'returns': 'null'
+    },
+    'extend': {
+        'args': 'list, list',
+        'text': 'extend a list with another list',
+        'returns': 'null'
+    },
+    'len': {
+        'args': 'list/string',
+        'text': 'get the length of a list or string',
+        'returns': 'int'
+    },
+    'File': {
+        'args': 'string',
+        'text': 'open a file for reading or writing',
+        'returns': 'File'
+    },
+    'read_stream': {
+        'args': 'File',
+        'text': 'read string from entire file',
+        'returns': 'string'
+    },
+    'write_stream': {
+        'args': 'File, string',
+        'text': 'write string to file',
+        'returns': 'null'
+    },
+    'file_exists': {
+        'args': 'string',
+        'text': 'check if file exists',
+        'returns': 'bool'
+    },
+    'sleep': {
+        'args': 'int',
+        'text': 'sleep for a number of seconds',
+        'returns': 'null'
+    },
+    'tostr': {
+        'args': 'any type',
+        'text': 'convert any value to a string',
+        'returns': 'string'
+    },
+    'toint': {
+        'args': 'any type',
+        'text': 'convert a String/Number value to an integer',
+        'returns': 'int'
+    },
+    'get_now': {
+        'args': '',
+        'text': 'get the current time',
+        'returns': 'int'
+    },
+    'get_env': {
+        'args': 'string',
+        'text': 'get the value of an environment variable',
+        'returns': 'string'
+    },
+    'set_env': {
+        'args': 'string, string',
+        'text': 'set an environment variable',
+        'returns': 'null'
+    },
+    'get_dir': {
+        'args': '',
+        'text': 'get the current working directory',
+        'returns': 'string'
+    },
+    'set_dir': {
+        'args': 'string',
+        'text': 'set the current working directory',
+        'returns': 'null'
+    },
+    'random': {
+        'args': '',
+        'text': 'get a random number',
+        'returns': 'int'
+    },
+    'rand_int': {
+        'args': '',
+        'text': 'get a random integer',
+        'returns': 'int'
+    },
+    'rand_seed': {
+        'args': 'int',
+        'text': 'set the random seed',
+        'returns': 'null'
+    },
+    'rand_pick': {
+        'args': 'list',
+        'text': 'pick a random item from a list',
+        'returns': 'any'
+    },
+    'rand_range': {
+        'args': 'int, int',
+        'text': 'get a random number between two values',
+        'returns': 'int'
+    },
+    'join': {
+        'args': 'string, list',
+        'text': 'join a list of strings into a string',
+        'returns': 'string'
+    },
+    'Run': {
+        'args': 'string',
+        'text': 'run a cupscript file',
+        'returns': 'null'
+    },
+    '<builtin types>': {
+        'int': 'integer',
+        'string': 'string',
+        'list': 'list',
+        'func': 'function',
+        'null': 'null',
+        'bool': 'boolean'
+    }
+}
+

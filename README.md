@@ -2,10 +2,10 @@
 
 CupScript is a simple scripting language made using python
 
-It includes some basic functions, variables, loops, and some other built in functions but it is not a full language.
+It includes some basic functionality like variables, loops, and some other built in functions but it is not a full language.
 I made it to learn how programming languages work and how to make a language specifically interpreted languages.
 
-Heres an installation/run guide for whoever that wants to try it out.
+Heres an installation/run guide if you want to try it out.
 
 # Installation:
 
@@ -19,17 +19,13 @@ there are no requirements, but you will need python 3.6 or higher to run it.
     python3 cup.py
     python3 cup.py <filename>
 
-    For Windows:
-    python cup.py
-    python cup.py <filename>
-
 
 run file from cupshell: Run("filename")
 
 
 # Syntax
 
-Examples can be found in the the [example.cup](https://github.com/Fus3n/cupscript/blob/main/example.cup) file
+Examples can be found in the the [example](https://github.com/Fus3n/cupscript/blob/main/examples) directory.
 I will be adding more examples soon.
 
 
@@ -47,8 +43,9 @@ print(1 * 2)
 print(1 / 2)
 print(1 % 2)
 print(1 ^ 2)
+print((1 + 2) * 3 - 4 / 5 % 6 ^ 7)
 
-var name = gets("Enter your name: ")
+name = gets("Enter your name: ")
 print("Hello " + name)
 
 ```
@@ -56,13 +53,15 @@ print("Hello " + name)
 ### Definitions
 
 ```ruby
-var a = [1, 2, 3]
+a = [1, 2, 3]
 
+b = 5
+# or
 var b = 5
 
-var c = "Hello World"
+c = "Hello World"
 
-var b = b + a>0; # yes this is how you get element from list or a string in cs Semicolons are optional unless ur writing comments like this
+b = b + a.0;  # 'a.0' -> accesing the first element in the list 
 
 func add(a, b)
     return a + b
@@ -70,15 +69,14 @@ end
 
 func add_two(a, b) -> a + b + 2
 
-var f = add(a, b) -> a + b 
-
-f(5, 5)
+add_two(5, 5)
 
 ```
 
 ### Loops
 ```ruby
-for i = 0 till 100 then
+# for loop
+for i = 0 till 100 do
 	if i % 3 == 0 and i % 5 == 0 then
 		print("fizzbuzz")
 	elseif i % 3 == 0 then
@@ -89,6 +87,14 @@ for i = 0 till 100 then
 		print(i)
 	end
 end
+
+# while loop
+i = 0
+while i != 5 do
+	print("Hello! " + tostr(i)) # 'tostr' converts i  to string 'toint' does opposite
+	i = i + 1
+end
+
 ```
 
 

@@ -1,5 +1,3 @@
-
-
 #######################################
 # Imports
 #######################################
@@ -9,15 +7,69 @@ import time
 import random
 
 from .consts import *
-from .error import RTError, InvalidSyntaxError, KeyboardInterruptError, position_start, position_end
+from .error import (
+    Error,
+    RTError,
+    InvalidSyntaxError,
+    KeyboardInterruptError,
+    position_start,
+    position_end,
+)
 from .cup_nodes import *
 from .cup_types import *
 from .cup_lex import Lexer, RTResult
 from .cup_types import *
+from .cup_utils import Token
+import os
+from pathlib import Path
 
+def import_module(fn, interpreter, context):
+    # Generate tokens
+    res = RTResult()
+    result = None
+    fpath = Path(fn)
+    # check if file exists
+    if not fpath.is_file():
+        return None, res.failure(RTError(
+                    position_start, position_end,
+                    "File not found",
+                    context
+        ))
 
+    with open(fn, "r") as f:
+        text = f.read()
+
+    lexer = Lexer(fn, text)
+    tokens, error = lexer.make_tokens()
+    if error:
+        return None, error
+    
+    try:
+        parser = Parser(tokens)
+        ast = parser.parse()
+        if ast.error:
+            return None, ast.error
+
+        # Run program
+        
+        context = Context(f"<{fpath.stem}>")
+        context.symbol_table = global_symbol_table
+        context.private_symbol_table = SymbolTable()
+        context.private_symbol_table.set("is_main", Number(0))
+        result = interpreter.visit(ast.node, context)
+        result.value = "" if str(result.value) == "null" else result.value
+        return result.value, result.error
+    except KeyboardInterrupt:
+        err = KeyboardInterruptError(
+            position_start, position_end, "Execution interrupted"
+        )
+        return None, err
 
 class Function(BaseFunction):
+    """
+    Function Base Class
+    """
+
     def __init__(self, name, body_node, arg_names, should_auto_return):
         super().__init__(name)
         self.body_node = body_node
@@ -29,8 +81,7 @@ class Function(BaseFunction):
         interpreter = Interpreter()
         exec_ctx = self.generate_new_context()
 
-        res.register(self.check_and_populate_args(
-            self.arg_names, args, exec_ctx))
+        res.register(self.check_and_populate_args(self.arg_names, args, exec_ctx))
         if res.should_return():
             return res
 
@@ -39,23 +90,25 @@ class Function(BaseFunction):
             return res
 
         ret_value = (
-            value if self.should_auto_return else None) or res.func_return_value or Null.null
+            (value if self.should_auto_return else None)
+            or res.func_return_value
+            or Null.null
+        )
         return res.success(ret_value)
 
     def copy(self):
-        copy = Function(self.name, self.body_node,
-                        self.arg_names, self.should_auto_return)
+        copy = Function(
+            self.name, self.body_node, self.arg_names, self.should_auto_return
+        )
         copy.set_context(self.context)
         copy.set_pos(self.pos_start, self.pos_end)
         return copy
 
     def type(self):
-        return '<function>'
+        return "<function>"
 
     def __repr__(self):
         return f"<function {self.name}>"
-
-
 
 
 class BuiltInFunction(BaseFunction):
@@ -66,11 +119,10 @@ class BuiltInFunction(BaseFunction):
         res = RTResult()
         exec_ctx = self.generate_new_context()
 
-        method_name = f'execute_{self.name}'
+        method_name = f"execute_{self.name}"
         method = getattr(self, method_name, self.no_visit_method)
 
-        res.register(self.check_and_populate_args(
-            method.arg_names, args, exec_ctx))
+        res.register(self.check_and_populate_args(method.arg_names, args, exec_ctx))
         if res.should_return():
             return res
 
@@ -80,7 +132,7 @@ class BuiltInFunction(BaseFunction):
         return res.success(return_value)
 
     def no_visit_method(self, node, context):
-        raise Exception(f'No execute_{self.name} method defined')
+        raise Exception(f"No execute_{self.name} method defined")
 
     def copy(self):
         copy = BuiltInFunction(self.name)
@@ -94,53 +146,67 @@ class BuiltInFunction(BaseFunction):
     ###############- builtin funcitons -#####################
 
     def execute_print(self, exec_ctx):
-        print(str(exec_ctx.symbol_table.get('value')))
+        value = exec_ctx.symbol_table.get("value")
+        if isinstance(value, String):
+            print(value.value)
+            return RTResult().success(Null.null)
+
+        print(repr(exec_ctx.symbol_table.get("value")))
         return RTResult().success(Null.null)
-    execute_print.arg_names = ['value']
+
+    execute_print.arg_names = ["value"]
 
     def execute_print_ret(self, exec_ctx):
-        return RTResult().success(String(str(exec_ctx.symbol_table.get('value'))))
-    execute_print_ret.arg_names = ['value']
+        return RTResult().success(String(str(exec_ctx.symbol_table.get("value"))))
+
+    execute_print_ret.arg_names = ["value"]
 
     def execute_input(self, exec_ctx):
-        prompt = exec_ctx.symbol_table.get('prompt')
+        prompt = exec_ctx.symbol_table.get("prompt")
         text = input(prompt)
         return RTResult().success(String(text))
+
     execute_input.arg_names = ["prompt"]
 
     def execute_clear(self, exec_ctx):
-        os.system('cls' if os.name == 'nt' else 'clear')
+        os.system("cls" if os.name == "nt" else "clear")
         return RTResult().success(Null.null)
+
     execute_clear.arg_names = []
 
     def execute_type_of(self, exec_ctx):
-        data = exec_ctx.symbol_table.get('value')
+        data = exec_ctx.symbol_table.get("value")
         return RTResult().success(String(data.type()))
-    execute_type_of.arg_names = ['value']
+
+    execute_type_of.arg_names = ["value"]
 
     def execute_is_number(self, exec_ctx):
         is_number = isinstance(exec_ctx.symbol_table.get("value"), Number)
         return RTResult().success(Number.true if is_number else Number.false)
+
     execute_is_number.arg_names = ["value"]
 
     def execute_is_string(self, exec_ctx):
         is_number = isinstance(exec_ctx.symbol_table.get("value"), String)
         return RTResult().success(Number.true if is_number else Number.false)
+
     execute_is_string.arg_names = ["value"]
 
     def execute_is_list(self, exec_ctx):
         is_number = isinstance(exec_ctx.symbol_table.get("value"), List)
         return RTResult().success(Number.true if is_number else Number.false)
+
     execute_is_list.arg_names = ["value"]
 
     def execute_is_function(self, exec_ctx):
-        is_number = isinstance(
-            exec_ctx.symbol_table.get("value"), BaseFunction)
+        is_number = isinstance(exec_ctx.symbol_table.get("value"), BaseFunction)
         return RTResult().success(Number.true if is_number else Number.false)
+
     execute_is_function.arg_names = ["value"]
 
     def execute_tostr(self, exec_ctx):
         return RTResult().success(String(str(exec_ctx.symbol_table.get("value"))))
+
     execute_tostr.arg_names = ["value"]
 
     def execute_append(self, exec_ctx):
@@ -154,40 +220,54 @@ class BuiltInFunction(BaseFunction):
         elif isinstance(obj_, String):
             return RTResult().success(String(obj_.value + value.value))
         else:
-            return RTResult().failure(RTError(
-                self.pos_start, self.pos_end,
-                "Invalid argument for 'append'",
-                exec_ctx))
-    execute_append.arg_names = ["object", "value"]
+            return RTResult().failure(
+                RTError(
+                    self.pos_start,
+                    self.pos_end,
+                    "Invalid argument for 'append'",
+                    exec_ctx,
+                )
+            )
 
+    execute_append.arg_names = ["object", "value"]
 
     def execute_pop(self, exec_ctx):
         list_ = exec_ctx.symbol_table.get("list")
         index = exec_ctx.symbol_table.get("index")
 
         if not isinstance(list_, List):
-            return RTResult().failure(RTError(
-                self.pos_start, self.pos_end,
-                "First argument of 'pop' must be list",
-                exec_ctx
-            ))
+            return RTResult().failure(
+                RTError(
+                    self.pos_start,
+                    self.pos_end,
+                    "First argument of 'pop' must be list",
+                    exec_ctx,
+                )
+            )
 
         if not isinstance(index, Number):
-            return RTResult().failure(RTError(
-                self.pos_start, self.pos_end,
-                "Second argument of 'pop' must be number",
-                exec_ctx
-            ))
+            return RTResult().failure(
+                RTError(
+                    self.pos_start,
+                    self.pos_end,
+                    "Second argument of 'pop' must be number",
+                    exec_ctx,
+                )
+            )
 
         try:
             element = list_.elements.pop(index.value)
         except:
-            return RTResult().failure(RTError(
-                self.pos_start, self.pos_end,
-                'Element at this index could not be removed from list because index is out of bounds',
-                exec_ctx
-            ))
+            return RTResult().failure(
+                RTError(
+                    self.pos_start,
+                    self.pos_end,
+                    "Element at this index could not be removed from list because index is out of bounds",
+                    exec_ctx,
+                )
+            )
         return RTResult().success(element)
+
     execute_pop.arg_names = ["list", "index"]
 
     def execute_extend(self, exec_ctx):
@@ -195,21 +275,28 @@ class BuiltInFunction(BaseFunction):
         listB = exec_ctx.symbol_table.get("listB")
 
         if not isinstance(listA, List):
-            return RTResult().failure(RTError(
-                self.pos_start, self.pos_end,
-                "First argument of 'extend' must be list",
-                exec_ctx
-            ))
+            return RTResult().failure(
+                RTError(
+                    self.pos_start,
+                    self.pos_end,
+                    "First argument of 'extend' must be list",
+                    exec_ctx,
+                )
+            )
 
         if not isinstance(listB, List):
-            return RTResult().failure(RTError(
-                self.pos_start, self.pos_end,
-                "Second argument of 'extend' must be list",
-                exec_ctx
-            ))
+            return RTResult().failure(
+                RTError(
+                    self.pos_start,
+                    self.pos_end,
+                    "Second argument of 'extend' must be list",
+                    exec_ctx,
+                )
+            )
 
         listA.elements.extend(listB.elements)
         return RTResult().success(Null.null)
+
     execute_extend.arg_names = ["listA", "listB"]
 
     def execute_len(self, exec_ctx):
@@ -220,22 +307,29 @@ class BuiltInFunction(BaseFunction):
         elif isinstance(value_, String):
             return RTResult().success(Number(len(value_.value)))
         else:
-            return RTResult().failure(RTError(
-                self.pos_start, self.pos_end,
-                "Argument for 'len' must be list or string",
-                exec_ctx
-            ))
+            return RTResult().failure(
+                RTError(
+                    self.pos_start,
+                    self.pos_end,
+                    "Argument for 'len' must be list or string",
+                    exec_ctx,
+                )
+            )
+
     execute_len.arg_names = ["value"]
 
     def execute_run(self, exec_ctx):
         fn = exec_ctx.symbol_table.get("fn")
 
         if not isinstance(fn, String):
-            return RTResult().failure(RTError(
-                self.pos_start, self.pos_end,
-                "Second argument must be string",
-                exec_ctx
-            ))
+            return RTResult().failure(
+                RTError(
+                    self.pos_start,
+                    self.pos_end,
+                    "Second argument must be string",
+                    exec_ctx,
+                )
+            )
 
         fn = fn.value
 
@@ -243,83 +337,108 @@ class BuiltInFunction(BaseFunction):
             with open(fn, "r") as f:
                 script = f.read()
         except Exception as e:
-            return RTResult().failure(RTError(
-                self.pos_start, self.pos_end,
-                f"Failed to load script \"{fn}\"\n" + str(e),
-                exec_ctx
-            ))
+            return RTResult().failure(
+                RTError(
+                    self.pos_start,
+                    self.pos_end,
+                    f'Failed to load script "{fn}"\n' + str(e),
+                    exec_ctx,
+                )
+            )
 
         _, error = run(fn, script)
 
         if error:
-            return RTResult().failure(RTError(
-                self.pos_start, self.pos_end,
-                f"Failed to finish executing script \"{fn}\"\n" +
-                str(error),
-                exec_ctx
-            ))
+            return RTResult().failure(
+                RTError(
+                    self.pos_start,
+                    self.pos_end,
+                    f'Failed to finish executing script "{fn}"\n' + str(error),
+                    exec_ctx,
+                )
+            )
 
         return RTResult().success(Null.null)
+
     execute_run.arg_names = ["fn"]
 
     def execute_sleep(self, exec_ctx):
         seconds = exec_ctx.symbol_table.get("seconds")
 
         if not isinstance(seconds, Number):
-            return RTResult().failure(RTError(
-                self.pos_start, self.pos_end,
-                "First argument for 'sleep' must be a number",
-                exec_ctx
-            ))
+            return RTResult().failure(
+                RTError(
+                    self.pos_start,
+                    self.pos_end,
+                    "First argument for 'sleep' must be a number",
+                    exec_ctx,
+                )
+            )
 
         time.sleep(seconds.value)
         return RTResult().success(Null.null)
+
     execute_sleep.arg_names = ["seconds"]
 
     def execute_exit(self, exec_ctx):
         exit(0)
+
     execute_exit.arg_names = []
 
     def execute_open_stream(self, exec_ctx):
         file_path = exec_ctx.symbol_table.get("file_path")
 
         if not isinstance(file_path, String):
-            return RTResult().failure(RTError(
-                self.pos_start, self.pos_end,
-                "First argument for 'open_stream' must be a string",
-                exec_ctx
-            ))
+            return RTResult().failure(
+                RTError(
+                    self.pos_start,
+                    self.pos_end,
+                    "First argument for 'open_stream' must be a string",
+                    exec_ctx,
+                )
+            )
 
         try:
             file_name = os.path.splitext(file_path.value)[0]
-            return RTResult().success(File(file_name, file_path.value))    
+            return RTResult().success(File(file_name, file_path.value))
         except Exception as e:
-            return RTResult().failure(RTError(
-                self.pos_start, self.pos_end,
-                f"Failed to open file \"{file_path.value}\"\n" + str(e),
-                exec_ctx
-            ))
+            return RTResult().failure(
+                RTError(
+                    self.pos_start,
+                    self.pos_end,
+                    f'Failed to open file "{file_path.value}"\n' + str(e),
+                    exec_ctx,
+                )
+            )
+
     execute_open_stream.arg_names = ["file_path"]
 
     def execute_read_stream(self, exec_ctx):
         file = exec_ctx.symbol_table.get("file")
 
         if not isinstance(file, File):
-            return RTResult().failure(RTError(
-                self.pos_start, self.pos_end,
-                "First argument for 'read_stream' must be a file",
-                exec_ctx
-            ))
+            return RTResult().failure(
+                RTError(
+                    self.pos_start,
+                    self.pos_end,
+                    "First argument for 'read_stream' must be a file",
+                    exec_ctx,
+                )
+            )
 
         try:
             with open(file.path, "r") as f:
                 return RTResult().success(String(f.read()))
         except Exception as e:
-            return RTResult().failure(RTError(
-                self.pos_start, self.pos_end,
-                f"Failed to read file \"{file.path}\"\n" + str(e),
-                exec_ctx
-            ))
+            return RTResult().failure(
+                RTError(
+                    self.pos_start,
+                    self.pos_end,
+                    f'Failed to read file "{file.path}"\n' + str(e),
+                    exec_ctx,
+                )
+            )
+
     execute_read_stream.arg_names = ["file"]
 
     def execute_write_stream(self, exec_ctx):
@@ -327,29 +446,39 @@ class BuiltInFunction(BaseFunction):
         text = exec_ctx.symbol_table.get("text")
 
         if not isinstance(file, File):
-            return RTResult().failure(RTError(
-                self.pos_start, self.pos_end,
-                "First argument for 'write_stream' must be a file",
-                exec_ctx
-            ))
+            return RTResult().failure(
+                RTError(
+                    self.pos_start,
+                    self.pos_end,
+                    "First argument for 'write_stream' must be a file",
+                    exec_ctx,
+                )
+            )
 
         if not isinstance(text, String):
-            return RTResult().failure(RTError(
-                self.pos_start, self.pos_end,
-                "Second argument for 'write_stream' must be a string",
-                exec_ctx
-            ))
+            return RTResult().failure(
+                RTError(
+                    self.pos_start,
+                    self.pos_end,
+                    "Second argument for 'write_stream' must be a string",
+                    exec_ctx,
+                )
+            )
 
         try:
             with open(file.path, "a") as f:
                 f.write(text.value)
             return RTResult().success(Number.null)
         except Exception as e:
-            return RTResult().failure(RTError(
-                self.pos_start, self.pos_end,
-                f"Failed to write to file \"{file.path}\"\n" + str(e),
-                exec_ctx
-            ))
+            return RTResult().failure(
+                RTError(
+                    self.pos_start,
+                    self.pos_end,
+                    f'Failed to write to file "{file.path}"\n' + str(e),
+                    exec_ctx,
+                )
+            )
+
     execute_write_stream.arg_names = ["file", "text"]
 
     def execute_file_exists(self, exec_ctx):
@@ -360,48 +489,65 @@ class BuiltInFunction(BaseFunction):
 
         elif isinstance(file_path, File):
             file_path = file_path.path
-        
+
         else:
-            return RTResult().failure(RTError(
-                self.pos_start, self.pos_end,
-                "First argument for 'file_exists' must be a string or file",
-                exec_ctx
-            ))
-            
+            return RTResult().failure(
+                RTError(
+                    self.pos_start,
+                    self.pos_end,
+                    "First argument for 'file_exists' must be a string or file",
+                    exec_ctx,
+                )
+            )
+
         try:
-            return RTResult().success(Number.true if os.path.exists(file_path) else Number.false)
+            return RTResult().success(
+                Number.true if os.path.exists(file_path) else Number.false
+            )
         except Exception as e:
-            return RTResult().failure(RTError(
-                self.pos_start, self.pos_end,
-                f"Failed to check if file exists \"{file_path}\"\n" + str(e),
-                exec_ctx
-            ))
+            return RTResult().failure(
+                RTError(
+                    self.pos_start,
+                    self.pos_end,
+                    f'Failed to check if file exists "{file_path}"\n' + str(e),
+                    exec_ctx,
+                )
+            )
+
     execute_file_exists.arg_names = ["file_path"]
 
     def execute_get_now(self, exec_ctx):
         return RTResult().success(Number(time.time()))
+
     execute_get_now.arg_names = []
 
     def execute_get_env(self, exec_ctx):
         name = exec_ctx.symbol_table.get("name")
 
         if not isinstance(name, String):
-            return RTResult().failure(RTError(
-                self.pos_start, self.pos_end,
-                "First argument for 'get_env' must be a string",
-                exec_ctx
-            ))
+            return RTResult().failure(
+                RTError(
+                    self.pos_start,
+                    self.pos_end,
+                    "First argument for 'get_env' must be a string",
+                    exec_ctx,
+                )
+            )
 
         value = os.getenv(name.value)
 
         if value is None:
-            return RTResult().failure(RTError(
-                self.pos_start, self.pos_end,
-                f"Environment variable '{name.value}' not found",
-                exec_ctx
-            ))
+            return RTResult().failure(
+                RTError(
+                    self.pos_start,
+                    self.pos_end,
+                    f"Environment variable '{name.value}' not found",
+                    exec_ctx,
+                )
+            )
 
         return RTResult().success(String(value))
+
     execute_get_env.arg_names = ["name"]
 
     def execute_set_env(self, exec_ctx):
@@ -409,64 +555,86 @@ class BuiltInFunction(BaseFunction):
         value = exec_ctx.symbol_table.get("value")
 
         if not isinstance(name, String):
-            return RTResult().failure(RTError(
-                self.pos_start, self.pos_end,
-                "First argument for 'set_env' must be a string",
-                exec_ctx
-            ))
+            return RTResult().failure(
+                RTError(
+                    self.pos_start,
+                    self.pos_end,
+                    "First argument for 'set_env' must be a string",
+                    exec_ctx,
+                )
+            )
 
         if not isinstance(value, String):
-            return RTResult().failure(RTError(
-                self.pos_start, self.pos_end,
-                "Second argument for 'set_env' must be a string",
-                exec_ctx
-            ))
+            return RTResult().failure(
+                RTError(
+                    self.pos_start,
+                    self.pos_end,
+                    "Second argument for 'set_env' must be a string",
+                    exec_ctx,
+                )
+            )
 
         try:
             os.environ[name.value] = value.value
             return RTResult().success(Null.null)
         except Exception as e:
-            return RTResult().failure(RTError(
-                self.pos_start, self.pos_end,
-                f"Failed to set environment variable '{name.value}'\n" + str(e),
-                exec_ctx
-            ))
+            return RTResult().failure(
+                RTError(
+                    self.pos_start,
+                    self.pos_end,
+                    f"Failed to set environment variable '{name.value}'\n" + str(e),
+                    exec_ctx,
+                )
+            )
+
     execute_set_env.arg_names = ["name", "value"]
 
     def execute_get_dir(self, exec_ctx):
         try:
             return RTResult().success(String(os.getcwd()))
         except Exception as e:
-            return RTResult().failure(RTError(
-                self.pos_start, self.pos_end,
-                f"Failed to get current directory\n" + str(e),
-                exec_ctx
-            ))
+            return RTResult().failure(
+                RTError(
+                    self.pos_start,
+                    self.pos_end,
+                    f"Failed to get current directory\n" + str(e),
+                    exec_ctx,
+                )
+            )
+
     execute_get_dir.arg_names = []
 
     def execute_set_dir(self, exec_ctx):
         name = exec_ctx.symbol_table.get("name")
 
         if not isinstance(name, String):
-            return RTResult().failure(RTError(
-                self.pos_start, self.pos_end,
-                "First argument for 'set_dir' must be a string",
-                exec_ctx
-            ))
+            return RTResult().failure(
+                RTError(
+                    self.pos_start,
+                    self.pos_end,
+                    "First argument for 'set_dir' must be a string",
+                    exec_ctx,
+                )
+            )
 
         try:
             os.chdir(name.value)
             return RTResult().success(Null.null)
         except Exception as e:
-            return RTResult().failure(RTError(
-                self.pos_start, self.pos_end,
-                f"Failed to set current directory to '{name.value}'\n" + str(e),
-                exec_ctx
-            ))
+            return RTResult().failure(
+                RTError(
+                    self.pos_start,
+                    self.pos_end,
+                    f"Failed to set current directory to '{name.value}'\n" + str(e),
+                    exec_ctx,
+                )
+            )
+
     execute_set_dir.arg_names = ["name"]
 
     def execute_random(self, exec_ctx):
         return RTResult().success(Number(random.random()))
+
     execute_random.arg_names = []
 
     def execute_rand_int(self, exec_ctx):
@@ -474,77 +642,103 @@ class BuiltInFunction(BaseFunction):
         max = exec_ctx.symbol_table.get("max")
 
         if not isinstance(min, Number):
-            return RTResult().failure(RTError(
-                self.pos_start, self.pos_end,
-                "First argument for 'rand_int' must be a number",
-                exec_ctx
-            ))
+            return RTResult().failure(
+                RTError(
+                    self.pos_start,
+                    self.pos_end,
+                    "First argument for 'rand_int' must be a number",
+                    exec_ctx,
+                )
+            )
 
         if not isinstance(max, Number):
-            return RTResult().failure(RTError(
-                self.pos_start, self.pos_end,
-                "Second argument for 'rand_int' must be a number",
-                exec_ctx
-            ))
+            return RTResult().failure(
+                RTError(
+                    self.pos_start,
+                    self.pos_end,
+                    "Second argument for 'rand_int' must be a number",
+                    exec_ctx,
+                )
+            )
 
         return RTResult().success(Number(random.randint(min.value, max.value)))
+
     execute_rand_int.arg_names = ["min", "max"]
 
     def execute_rand_seed(self, exec_ctx):
         seed = exec_ctx.symbol_table.get("seed")
 
         if not isinstance(seed, Number):
-            return RTResult().failure(RTError(
-                self.pos_start, self.pos_end,
-                "First argument for 'rand_seed' must be a number",
-                exec_ctx
-            ))
+            return RTResult().failure(
+                RTError(
+                    self.pos_start,
+                    self.pos_end,
+                    "First argument for 'rand_seed' must be a number",
+                    exec_ctx,
+                )
+            )
 
         random.seed(seed.value)
         return RTResult().success(Null.null)
+
     execute_rand_seed.arg_names = ["seed"]
 
     def execute_rand_pick(self, exec_ctx):
         arr = exec_ctx.symbol_table.get("arr")
 
         if not isinstance(arr, List):
-            return RTResult().failure(RTError(
-                self.pos_start, self.pos_end,
-                "First argument for 'rand_pick' must be an List",
-                exec_ctx
-            ))
+            return RTResult().failure(
+                RTError(
+                    self.pos_start,
+                    self.pos_end,
+                    "First argument for 'rand_pick' must be an List",
+                    exec_ctx,
+                )
+            )
 
         if len(arr.elements) == 0:
-            return RTResult().failure(RTError(
-                self.pos_start, self.pos_end,
-                "Array passed to 'rand_pick' is empty",
-                exec_ctx
-            ))
+            return RTResult().failure(
+                RTError(
+                    self.pos_start,
+                    self.pos_end,
+                    "Array passed to 'rand_pick' is empty",
+                    exec_ctx,
+                )
+            )
 
-        return RTResult().success(arr.elements[random.randrange(0, len(arr.elements) - 1)])
+        return RTResult().success(
+            arr.elements[random.randrange(0, len(arr.elements) - 1)]
+        )
+
     execute_rand_pick.arg_names = ["arr"]
 
     def execute_toint(self, exec_ctx):
-        value          = exec_ctx.symbol_table.get("value")
-        supress_error  = exec_ctx.symbol_table.get("supress_error")
+        value = exec_ctx.symbol_table.get("value")
+        supress_error = exec_ctx.symbol_table.get("supress_error")
 
         if not isinstance(supress_error, Number):
-            return RTResult().failure(RTError(
-                self.pos_start, self.pos_end,
-                "Second argument for 'toint' must be a number",
-                exec_ctx
-            ))
-        
+            return RTResult().failure(
+                RTError(
+                    self.pos_start,
+                    self.pos_end,
+                    "Second argument for 'toint' must be a number",
+                    exec_ctx,
+                )
+            )
+
         if supress_error.value == 1:
             supress_error = True
         elif supress_error.value == 0:
             supress_error = False
         else:
-            return RTResult().failure(RTError(
-                self.pos_start, self.pos_end,
-                "Second argument for 'toint' must be a boolean",
-                exec_ctx
-            ))
+            return RTResult().failure(
+                RTError(
+                    self.pos_start,
+                    self.pos_end,
+                    "Second argument for 'toint' must be a boolean",
+                    exec_ctx,
+                )
+            )
 
         if isinstance(value, Number):
             return RTResult().success(Number(int(value.value)))
@@ -555,102 +749,220 @@ class BuiltInFunction(BaseFunction):
                 if supress_error:
                     return RTResult().success(Number.null)
                 else:
-                    return RTResult().failure(RTError(
-                        self.pos_start, self.pos_end,
-                        f"Failed to convert '{value.value}' of type '{value.type()}' to integer",
-                        exec_ctx
-                    ))
+                    return RTResult().failure(
+                        RTError(
+                            self.pos_start,
+                            self.pos_end,
+                            f"Failed to convert '{value.value}' of type '{value.type()}' to integer",
+                            exec_ctx,
+                        )
+                    )
         else:
             if supress_error:
                 return RTResult().success(Number.null)
             else:
-                return RTResult().failure(RTError(
-                    self.pos_start, self.pos_end,
-                    f"Failed to convert value of type '{value.type()}' to integer",
-                    exec_ctx
-                ))
-    execute_toint.arg_names = ['value', 'supress_error']
+                return RTResult().failure(
+                    RTError(
+                        self.pos_start,
+                        self.pos_end,
+                        f"Failed to convert value of type '{value.type()}' to integer",
+                        exec_ctx,
+                    )
+                )
+
+    execute_toint.arg_names = ["value", "supress_error"]
+
+
+    def execute_tofloat(self, exec_ctx):
+        value = exec_ctx.symbol_table.get("value")
+        supress_error = exec_ctx.symbol_table.get("supress_error")
+
+        if not isinstance(supress_error, Number):
+            return RTResult().failure(
+                RTError(
+                    self.pos_start,
+                    self.pos_end,
+                    "Second argument for 'tofloat' must be a number",
+                    exec_ctx,
+                )
+            )
+
+        if supress_error.value == 1:
+            supress_error = True
+        elif supress_error.value == 0:
+            supress_error = False
+        else:
+            return RTResult().failure(
+                RTError(
+                    self.pos_start,
+                    self.pos_end,
+                    "Second argument for 'tofloat' must be a boolean",
+                    exec_ctx,
+                )
+            )
+
+        if isinstance(value, Number):
+            return RTResult().success(Number(float(value.value)))
+        elif isinstance(value, String):
+            try:
+                return RTResult().success(Number(float(value.value)))
+            except ValueError:
+                if supress_error:
+                    return RTResult().success(Number.null)
+                else:
+                    return RTResult().failure(
+                        RTError(
+                            self.pos_start,
+                            self.pos_end,
+                            f"Failed to convert '{value.value}' of type '{value.type()}' to float",
+                            exec_ctx,
+                        )
+                    )
+        else:
+            if supress_error:
+                return RTResult().success(Number.null)
+            else:
+                return RTResult().failure(
+                    RTError(
+                        self.pos_start,
+                        self.pos_end,
+                        f"Failed to convert value of type '{value.type()}' to float",
+                        exec_ctx,
+                    )
+                )
+
+    execute_tofloat.arg_names = ["value", "supress_error"]
+
+    def execute_join(self, exec_ctx):
+        # join list with a sep
+        sep = exec_ctx.symbol_table.get("sep")
+        iterables = exec_ctx.symbol_table.get("elements")
+        if not isinstance(sep, String):
+            return RTResult().failure(
+                RTError(
+                    self.pos_start,
+                    self.pos_end,
+                    "First argument for 'join' must be a string",
+                    exec_ctx,
+                )
+            )
+
+        if isinstance(iterables, List):
+            if len(iterables.elements) == 0:
+                return RTResult().success(String(''))
+
+            return RTResult().success(
+                String(
+                    sep.value.join([str(element.value) for element in iterables.elements])
+                )
+            )
+        elif isinstance(iterables, String):
+            if len(iterables) == 0:
+                return RTResult().success(String(''))
+            return RTResult().success(String(
+                sep.value.join([str(element) for element in iterables.value])
+            ))
+        else:
+            return RTResult().failure(
+                RTError(
+                    self.pos_start,
+                    self.pos_end,
+                    "Second argument for 'join' must be a list or a string",
+                    exec_ctx,
+                )
+            )
+        
+    execute_join.arg_names = ['sep', "elements"]
 
     def execute_help(self, exec_ctx):
-        helpMsg = """help - [
-            <builtin function>:
-                clear - clear the screen -> null
-                exit - exit the script: -> null
-                print - print a string or any object : string, <- null
-                sleep - sleep for a number of seconds : int
-                typeof - get the type of the object: int, string, list, func, null, bool, File
-                sets - print but also returns the value: sets("hello") -> "hello"
-                gets - input / prompt for a value and return it : args = string
-                is_num - check if the value is a number : args = any type -> bool
-                is_string - check if the value is a string : args = any type -> bool
-                is_list - check if the value is a list -> bool : args = any type -> bool
-                is_func - check if the value is a function : args = any type -> bool
-                append - append a string to a string or any value to a list
-                remove - remove an item from a list
-                extend - extend a list with another list 
-                len - get the length of a list or string
-                File - open a file for reading or writing : File("file_name") to do file operations i.e. read_stream/write_stream
-                read_stream - read string from entire file: args = File
-                write_stream - write string to file: args = File, string
-                file_exists - check if file exists
-                sleep - sleep for a number of seconds
-                tostr - convert any value to a string
-                toint - convert a String/Number value to an integer
-                get_now - get the current time: -> int
-                get_env - get the value of an environment variable: string -> string
-                set_env - set an environment variable: string, string -> null
-                get_dir - get the current working directory: -> string
-                set_dir - set the current working directory: string -> null
-                random - get a random number: -> int
-                rand_int - get a random integer: -> int
-                rand_seed - set the random seed: int -> null
-                rand_pick - pick a random item from a list: list -> any
-                rand_range - get a random number between two values: int, int -> int
-                Run - run a cupscript file: Run("file_name")
-            <builtin types>:
-                int - integer : 123
-                string - string : "hello"
-                list - list : [string, int, list, func, null, bool]
-                func - function:  lambdas,  func name(arg1, arg2) -> arg1 + arg2
-                null - null: null = 0
-                bool - boolean : true, false, 1, 0
+        name = exec_ctx.symbol_table.get("funcname")
+        if isinstance(name, String):
+            if name.value == '':
+                return RTResult().success(String(helpMsg))
+            elif name.value in help_dict:
+                c = help_dict[name.value]
+                text = f"""
+                \r-{c['text']}
+                \r\t- args: {c['args']}
+                \r\t- returns: {c['returns']}
+                """.strip()
+                return RTResult().success(String(text))
+            else: RTResult().success(String('No Help Available'))
+        else:
+            return RTResult().failure(
+                RTError(
+                    self.pos_start,
+                    self.pos_end,
+                    "First argument for 'help' must be a string",
+                    exec_ctx,
+                )
+            )
 
-            <lang rules>:
-                get index element from list: list_name>index
-                get index element from string: string_name>index
-
-        ]
-        exit() - exit the shell 
-        """
-
-        return RTResult().success(String(helpMsg))
-    execute_help.arg_names = []
+    execute_help.arg_names = ['funcname']
 
     def execute_sys(self, exec_ctx):
         command = exec_ctx.symbol_table.get("command")
 
         if not isinstance(command, String):
-            return RTResult().failure(RTError(
-                self.pos_start, self.pos_end,
-                "First argument for 'sys' must be a string",
-                exec_ctx
-            ))
-        
+            return RTResult().failure(
+                RTError(
+                    self.pos_start,
+                    self.pos_end,
+                    "First argument for 'sys' must be a string",
+                    exec_ctx,
+                )
+            )
+
         try:
             os.system(command.value)
         except Exception as e:
-            return RTResult().failure(RTError(
-                self.pos_start, self.pos_end,
-                f"Failed to execute '{command.value}'\n" + str(e),
-                exec_ctx
-            ))
-        
+            return RTResult().failure(
+                RTError(
+                    self.pos_start,
+                    self.pos_end,
+                    f"Failed to execute '{command.value}'\n" + str(e),
+                    exec_ctx,
+                )
+            )
+
         return RTResult().success(Null.null)
+
     execute_sys.arg_names = ["command"]
 
     def execute_version(self, exec_ctx):
         return RTResult().success(String(VERSION))
+
     execute_version.arg_names = []
+
+    def execute_split(self, exec_ctx):
+        value = exec_ctx.symbol_table.get("string")
+        sep = exec_ctx.symbol_table.get("sep")
+
+        if not isinstance(value, String):
+            return RTResult().failure(
+                RTError(
+                    self.pos_start,
+                    self.pos_end,
+                    "First argument for 'split' must be a string",
+                    exec_ctx,
+                )
+            )
+
+        if not isinstance(sep, String):
+            return RTResult().failure(
+                RTError(
+                    self.pos_start,
+                    self.pos_end,
+                    "Second argument for 'split' must be a string",
+                    exec_ctx,
+                )
+            )
+
+        return RTResult().success(
+            List([String(string) for string in value.value.split(sep.value if len(sep.value) > 0 else ' ')])
+        )
+
+    execute_split.arg_names = ["string", "sep"]
 
 
 #######################################
@@ -675,6 +987,7 @@ BuiltInFunction.exit = BuiltInFunction("exit")
 BuiltInFunction.sleep = BuiltInFunction("sleep")
 BuiltInFunction.tostr = BuiltInFunction("tostr")
 BuiltInFunction.toint = BuiltInFunction("toint")
+BuiltInFunction.tofloat = BuiltInFunction("tofloat")
 BuiltInFunction.open_stream = BuiltInFunction("open_stream")
 BuiltInFunction.read_stream = BuiltInFunction("read_stream")
 BuiltInFunction.write_stream = BuiltInFunction("write_stream")
@@ -691,12 +1004,14 @@ BuiltInFunction.rand_pick = BuiltInFunction("rand_pick")
 BuiltInFunction.help = BuiltInFunction("help")
 BuiltInFunction.sys = BuiltInFunction("sys")
 BuiltInFunction.version = BuiltInFunction("version")
-
+BuiltInFunction.join = BuiltInFunction("join")
+BuiltInFunction.split = BuiltInFunction("split")
 
 
 #######################################
 # PARSE RESULT
 #######################################
+
 
 class ParseResult:
     def __init__(self):
@@ -732,10 +1047,17 @@ class ParseResult:
             self.error = error
         return self
 
+
 #######################################
 # PARSER
 #######################################
+class ImportNode:
+    def __init__(self, module_name_tok):
+        self.module_name_tok = module_name_tok
+        self.file_path = module_name_tok.value
 
+        self.pos_start = self.module_name_tok.pos_start
+        self.pos_end = self.module_name_tok.pos_end
 
 class Parser:
     def __init__(self, tokens):
@@ -755,15 +1077,18 @@ class Parser:
 
     def update_current_tok(self):
         if self.tok_idx >= 0 and self.tok_idx < len(self.tokens):
-            self.current_tok = self.tokens[self.tok_idx]
+            self.current_tok: Token = self.tokens[self.tok_idx]
 
     def parse(self):
         res = self.statements()
         if not res.error and self.current_tok.type != TT_EOF:
-            return res.failure(InvalidSyntaxError(
-                self.current_tok.pos_start, self.current_tok.pos_end,
-                "Token cannot appear after previous tokens"
-            ))
+            return res.failure(
+                InvalidSyntaxError(
+                    self.current_tok.pos_start,
+                    self.current_tok.pos_end,
+                    "Token cannot appear after previous tokens",
+                )
+            )
         return res
 
     ###################################
@@ -802,65 +1127,81 @@ class Parser:
                 continue
             statements.append(statement)
 
-        return res.success(ListNode(
-            statements,
-            pos_start,
-            self.current_tok.pos_end.copy()
-        ))
+        return res.success(
+            ListNode(statements, pos_start, self.current_tok.pos_end.copy())
+        )
 
     def statement(self):
         res = ParseResult()
         pos_start = self.current_tok.pos_start.copy()
 
-        if self.current_tok.matches(TT_KEYWORD, 'return'):
+        if self.current_tok.matches(TT_KEYWORD, "return"):
             res.register_advancement()
             self.advance()
 
             expr = res.try_register(self.expr())
             if not expr:
                 self.reverse(res.to_reverse_count)
-            return res.success(ReturnNode(expr, pos_start, self.current_tok.pos_start.copy()))
+            return res.success(
+                ReturnNode(expr, pos_start, self.current_tok.pos_start.copy())
+            )
 
-        if self.current_tok.matches(TT_KEYWORD, 'continue'):
+        if self.current_tok.matches(TT_KEYWORD, "continue"):
             res.register_advancement()
             self.advance()
-            return res.success(ContinueNode(pos_start, self.current_tok.pos_start.copy()))
+            return res.success(
+                ContinueNode(pos_start, self.current_tok.pos_start.copy())
+            )
 
-        if self.current_tok.matches(TT_KEYWORD, 'break'):
+        if self.current_tok.matches(TT_KEYWORD, "break"):
             res.register_advancement()
             self.advance()
             return res.success(BreakNode(pos_start, self.current_tok.pos_start.copy()))
 
         expr = res.register(self.expr())
         if res.error:
-            return res.failure(InvalidSyntaxError(
-                self.current_tok.pos_start, self.current_tok.pos_end,
-                "Expected 'return', 'continue', 'break', 'var', 'if', 'for', 'while', 'func', int, float, identifier, '+', '-', '(', '[' or 'not'"
-            ))
+            return res.failure(
+                InvalidSyntaxError(
+                    self.current_tok.pos_start,
+                    self.current_tok.pos_end,
+                    "Expected 'return', 'continue', 'break', 'var', 'if', 'for', 'while', 'func', int, float, identifier, '+', '-', '(', '[' or 'not'",
+                )
+            )
         return res.success(expr)
+
+    def peek_tok(self):
+        if self.tok_idx + 1 >= len(self.tokens):
+            return None
+        return self.tokens[self.tok_idx + 1]
 
     def expr(self):
         res = ParseResult()
 
-        if self.current_tok.matches(TT_KEYWORD, 'var'):
+        if self.current_tok.matches(TT_KEYWORD, "var"):
             res.register_advancement()
             self.advance()
 
             if self.current_tok.type != TT_IDENTIFIER:
-                return res.failure(InvalidSyntaxError(
-                    self.current_tok.pos_start, self.current_tok.pos_end,
-                    "Expected identifier"
-                ))
+                return res.failure(
+                    InvalidSyntaxError(
+                        self.current_tok.pos_start,
+                        self.current_tok.pos_end,
+                        "Expected identifier",
+                    )
+                )
 
             var_name = self.current_tok
             res.register_advancement()
             self.advance()
 
             if self.current_tok.type != TT_EQ:
-                return res.failure(InvalidSyntaxError(
-                    self.current_tok.pos_start, self.current_tok.pos_end,
-                    "Expected '='"
-                ))
+                return res.failure(
+                    InvalidSyntaxError(
+                        self.current_tok.pos_start,
+                        self.current_tok.pos_end,
+                        "Expected '='",
+                    )
+                )
 
             res.register_advancement()
             self.advance()
@@ -869,21 +1210,51 @@ class Parser:
                 return res
             return res.success(VarAssignNode(var_name, expr))
 
-        node = res.register(self.bin_op(
-            self.comp_expr, ((TT_KEYWORD, 'and'), (TT_KEYWORD, 'or'))))
+
+
+        if self.current_tok.matches(TT_KEYWORD, "import"):
+            res.register_advancement()
+            self.advance()
+
+            if self.current_tok.type != TT_STRING:
+                return res.failure(
+                    InvalidSyntaxError(
+                        self.current_tok.pos_start,
+                        self.current_tok.pos_end,
+                        "Expected string",
+                    )
+                )
+
+            module = self.current_tok
+            if module.value.endswith("/") or module.value.endswith("\\"):
+                module.value = module.value[:-1]
+
+            if not module.value.endswith('.cup'):
+                module.value += '.cup'
+            res.register_advancement()
+            self.advance()
+            return res.success(ImportNode(module))
+
+
+        node = res.register(
+            self.bin_op(self.comp_expr, ((TT_KEYWORD, "and"), (TT_KEYWORD, "or")))
+        )
 
         if res.error:
-            return res.failure(InvalidSyntaxError(
-                self.current_tok.pos_start, self.current_tok.pos_end,
-                "Expected 'var', 'if', 'for', 'while', 'func', int, float, identifier, '+', '-', '(', '[' or 'not'"
-            ))
+            return res.failure(
+                InvalidSyntaxError(
+                    self.current_tok.pos_start,
+                    self.current_tok.pos_end,
+                    "Expected 'var', 'if', 'for', 'while', 'func', int, float, identifier, '+', '-', '(', '[' or 'not'",
+                )
+            )
 
         return res.success(node)
 
     def comp_expr(self):
         res = ParseResult()
 
-        if self.current_tok.matches(TT_KEYWORD, 'not'):
+        if self.current_tok.matches(TT_KEYWORD, "not"):
             op_tok = self.current_tok
             res.register_advancement()
             self.advance()
@@ -893,14 +1264,18 @@ class Parser:
                 return res
             return res.success(UnaryOpNode(op_tok, node))
 
-        node = res.register(self.bin_op(
-            self.arith_expr, (TT_EE, TT_NE, TT_LT, TT_GT, TT_LTE, TT_GTE)))
+        node = res.register(
+            self.bin_op(self.arith_expr, (TT_EE, TT_NE, TT_LT, TT_GT, TT_LTE, TT_GTE, TT_DOT))
+        )
 
         if res.error:
-            return res.failure(InvalidSyntaxError(
-                self.current_tok.pos_start, self.current_tok.pos_end,
-                "Expected int, float, identifier, '+', '-', '(', '[', 'if', 'for', 'while', 'func' or 'not'"
-            ))
+            return res.failure(
+                InvalidSyntaxError(
+                    self.current_tok.pos_start,
+                    self.current_tok.pos_end,
+                    "Expected int, float, identifier, '+', '-', '(', '[', 'if', 'for', 'while', 'func' or 'not'",
+                )
+            )
 
         return res.success(node)
 
@@ -925,7 +1300,7 @@ class Parser:
         return self.power()
 
     def power(self):
-        return self.bin_op(self.call, (TT_POW, ), self.factor)
+        return self.bin_op(self.call, (TT_POW,), self.factor)
 
     def call(self):
         res = ParseResult()
@@ -944,10 +1319,13 @@ class Parser:
             else:
                 arg_nodes.append(res.register(self.expr()))
                 if res.error:
-                    return res.failure(InvalidSyntaxError(
-                        self.current_tok.pos_start, self.current_tok.pos_end,
-                        "Expected ')', 'var', 'if', 'for', 'while', 'func', int, float, identifier, '+', '-', '(', '[' or 'not'"
-                    ))
+                    return res.failure(
+                        InvalidSyntaxError(
+                            self.current_tok.pos_start,
+                            self.current_tok.pos_end,
+                            "Expected ')', 'var', 'if', 'for', 'while', 'func', int, float, identifier, '+', '-', '(', '[' or 'not'",
+                        )
+                    )
 
                 while self.current_tok.type == TT_COMMA:
                     res.register_advancement()
@@ -958,10 +1336,13 @@ class Parser:
                         return res
 
                 if self.current_tok.type != TT_RPAREN:
-                    return res.failure(InvalidSyntaxError(
-                        self.current_tok.pos_start, self.current_tok.pos_end,
-                        f"Expected ',' or ')'"
-                    ))
+                    return res.failure(
+                        InvalidSyntaxError(
+                            self.current_tok.pos_start,
+                            self.current_tok.pos_end,
+                            f"Expected ',' or ')'",
+                        )
+                    )
 
                 res.register_advancement()
                 self.advance()
@@ -998,10 +1379,13 @@ class Parser:
                 self.advance()
                 return res.success(expr)
             else:
-                return res.failure(InvalidSyntaxError(
-                    self.current_tok.pos_start, self.current_tok.pos_end,
-                    "Expected ')'"
-                ))
+                return res.failure(
+                    InvalidSyntaxError(
+                        self.current_tok.pos_start,
+                        self.current_tok.pos_end,
+                        "Expected ')'",
+                    )
+                )
 
         elif tok.type == TT_LSQUARE:
             list_expr = res.register(self.list_expr())
@@ -1009,34 +1393,37 @@ class Parser:
                 return res
             return res.success(list_expr)
 
-        elif tok.matches(TT_KEYWORD, 'if'):
+        elif tok.matches(TT_KEYWORD, "if"):
             if_expr = res.register(self.if_expr())
             if res.error:
                 return res
             return res.success(if_expr)
 
-        elif tok.matches(TT_KEYWORD, 'for'):
+        elif tok.matches(TT_KEYWORD, "for"):
             for_expr = res.register(self.for_expr())
             if res.error:
                 return res
             return res.success(for_expr)
 
-        elif tok.matches(TT_KEYWORD, 'while'):
+        elif tok.matches(TT_KEYWORD, "while"):
             while_expr = res.register(self.while_expr())
             if res.error:
                 return res
             return res.success(while_expr)
 
-        elif tok.matches(TT_KEYWORD, 'func'):
+        elif tok.matches(TT_KEYWORD, "func"):
             func_def = res.register(self.func_def())
             if res.error:
                 return res
             return res.success(func_def)
 
-        return res.failure(InvalidSyntaxError(
-            tok.pos_start, tok.pos_end,
-            "Expected int, float, identifier, '+', '-', '(', '[', IF', 'for', 'while', 'func'"
-        ))
+        return res.failure(
+            InvalidSyntaxError(
+                tok.pos_start,
+                tok.pos_end,
+                "Expected int, float, identifier, '+', '-', '(', '[', IF', 'for', 'while', 'func'",
+            )
+        )
 
     def list_expr(self):
         res = ParseResult()
@@ -1044,10 +1431,13 @@ class Parser:
         pos_start = self.current_tok.pos_start.copy()
 
         if self.current_tok.type != TT_LSQUARE:
-            return res.failure(InvalidSyntaxError(
-                self.current_tok.pos_start, self.current_tok.pos_end,
-                f"Expected '['"
-            ))
+            return res.failure(
+                InvalidSyntaxError(
+                    self.current_tok.pos_start,
+                    self.current_tok.pos_end,
+                    f"Expected '['",
+                )
+            )
 
         res.register_advancement()
         self.advance()
@@ -1058,10 +1448,13 @@ class Parser:
         else:
             element_nodes.append(res.register(self.expr()))
             if res.error:
-                return res.failure(InvalidSyntaxError(
-                    self.current_tok.pos_start, self.current_tok.pos_end,
-                    "Expected ']', 'var', 'if', 'for', 'while', 'func', int, float, identifier, '+', '-', '(', '[' or 'not'"
-                ))
+                return res.failure(
+                    InvalidSyntaxError(
+                        self.current_tok.pos_start,
+                        self.current_tok.pos_end,
+                        "Expected ']', 'var', 'if', 'for', 'while', 'func', int, float, identifier, '+', '-', '(', '[' or 'not'",
+                    )
+                )
 
             while self.current_tok.type == TT_COMMA:
                 res.register_advancement()
@@ -1072,36 +1465,37 @@ class Parser:
                     return res
 
             if self.current_tok.type != TT_RSQUARE:
-                return res.failure(InvalidSyntaxError(
-                    self.current_tok.pos_start, self.current_tok.pos_end,
-                    f"Expected ',' or ']'"
-                ))
+                return res.failure(
+                    InvalidSyntaxError(
+                        self.current_tok.pos_start,
+                        self.current_tok.pos_end,
+                        f"Expected ',' or ']'",
+                    )
+                )
 
             res.register_advancement()
             self.advance()
 
-        return res.success(ListNode(
-            element_nodes,
-            pos_start,
-            self.current_tok.pos_end.copy()
-        ))
+        return res.success(
+            ListNode(element_nodes, pos_start, self.current_tok.pos_end.copy())
+        )
 
     def if_expr(self):
         res = ParseResult()
-        all_cases = res.register(self.if_expr_cases('if'))
+        all_cases = res.register(self.if_expr_cases("if"))
         if res.error:
             return res
         cases, else_case = all_cases
         return res.success(IfNode(cases, else_case))
 
     def if_expr_b(self):
-        return self.if_expr_cases('elseif')
+        return self.if_expr_cases("elif")
 
     def if_expr_c(self):
         res = ParseResult()
         else_case = None
 
-        if self.current_tok.matches(TT_KEYWORD, 'else'):
+        if self.current_tok.matches(TT_KEYWORD, "else"):
             res.register_advancement()
             self.advance()
 
@@ -1114,14 +1508,17 @@ class Parser:
                     return res
                 else_case = (statements, True)
 
-                if self.current_tok.matches(TT_KEYWORD, 'end'):
+                if self.current_tok.matches(TT_KEYWORD, "end"):
                     res.register_advancement()
                     self.advance()
                 else:
-                    return res.failure(InvalidSyntaxError(
-                        self.current_tok.pos_start, self.current_tok.pos_end,
-                        "Expected 'end'"
-                    ))
+                    return res.failure(
+                        InvalidSyntaxError(
+                            self.current_tok.pos_start,
+                            self.current_tok.pos_end,
+                            "Expected 'end'",
+                        )
+                    )
             else:
                 expr = res.register(self.statement())
                 if res.error:
@@ -1134,7 +1531,7 @@ class Parser:
         res = ParseResult()
         cases, else_case = [], None
 
-        if self.current_tok.matches(TT_KEYWORD, 'elseif'):
+        if self.current_tok.matches(TT_KEYWORD, "elif"):
             all_cases = res.register(self.if_expr_b())
             if res.error:
                 return res
@@ -1151,11 +1548,18 @@ class Parser:
         cases = []
         else_case = None
 
+        if self.current_tok.value == 'var':
+            res.register_advancement()
+            self.advance()
+
         if not self.current_tok.matches(TT_KEYWORD, case_keyword):
-            return res.failure(InvalidSyntaxError(
-                self.current_tok.pos_start, self.current_tok.pos_end,
-                f"Expected '{case_keyword}'"
-            ))
+            return res.failure(
+                InvalidSyntaxError(
+                    self.current_tok.pos_start,
+                    self.current_tok.pos_end,
+                    f"Expected '{case_keyword}'",
+                )
+            )
 
         res.register_advancement()
         self.advance()
@@ -1164,11 +1568,14 @@ class Parser:
         if res.error:
             return res
 
-        if not self.current_tok.matches(TT_KEYWORD, 'then'):
-            return res.failure(InvalidSyntaxError(
-                self.current_tok.pos_start, self.current_tok.pos_end,
-                f"Expected 'then'"
-            ))
+        if not self.current_tok.matches(TT_KEYWORD, "then"):
+            return res.failure(
+                InvalidSyntaxError(
+                    self.current_tok.pos_start,
+                    self.current_tok.pos_end,
+                    f"Expected 'then'",
+                )
+            )
 
         res.register_advancement()
         self.advance()
@@ -1182,7 +1589,7 @@ class Parser:
                 return res
             cases.append((condition, statements, True))
 
-            if self.current_tok.matches(TT_KEYWORD, 'end'):
+            if self.current_tok.matches(TT_KEYWORD, "end"):
                 res.register_advancement()
                 self.advance()
             else:
@@ -1208,30 +1615,41 @@ class Parser:
     def for_expr(self):
         res = ParseResult()
 
-        if not self.current_tok.matches(TT_KEYWORD, 'for'):
-            return res.failure(InvalidSyntaxError(
-                self.current_tok.pos_start, self.current_tok.pos_end,
-                f"Expected 'for'"
-            ))
+        if not self.current_tok.matches(TT_KEYWORD, "for"):
+            return res.failure(
+                InvalidSyntaxError(
+                    self.current_tok.pos_start,
+                    self.current_tok.pos_end,
+                    f"Expected 'for'",
+                )
+            )
 
         res.register_advancement()
         self.advance()
-
+        if self.current_tok.value == 'var':
+            res.register_advancement()
+            self.advance()
         if self.current_tok.type != TT_IDENTIFIER:
-            return res.failure(InvalidSyntaxError(
-                self.current_tok.pos_start, self.current_tok.pos_end,
-                f"Expected identifier"
-            ))
+            return res.failure(
+                InvalidSyntaxError(
+                    self.current_tok.pos_start,
+                    self.current_tok.pos_end,
+                    f"Expected identifier",
+                )
+            )
 
         var_name = self.current_tok
         res.register_advancement()
         self.advance()
 
         if self.current_tok.type != TT_EQ:
-            return res.failure(InvalidSyntaxError(
-                self.current_tok.pos_start, self.current_tok.pos_end,
-                f"Expected '='"
-            ))
+            return res.failure(
+                InvalidSyntaxError(
+                    self.current_tok.pos_start,
+                    self.current_tok.pos_end,
+                    f"Expected '='",
+                )
+            )
 
         res.register_advancement()
         self.advance()
@@ -1240,11 +1658,14 @@ class Parser:
         if res.error:
             return res
 
-        if not self.current_tok.matches(TT_KEYWORD, 'till'):
-            return res.failure(InvalidSyntaxError(
-                self.current_tok.pos_start, self.current_tok.pos_end,
-                f"Expected 'till'"
-            ))
+        if not self.current_tok.matches(TT_KEYWORD, "till"):
+            return res.failure(
+                InvalidSyntaxError(
+                    self.current_tok.pos_start,
+                    self.current_tok.pos_end,
+                    f"Expected 'till'",
+                )
+            )
 
         res.register_advancement()
         self.advance()
@@ -1253,7 +1674,7 @@ class Parser:
         if res.error:
             return res
 
-        if self.current_tok.matches(TT_KEYWORD, 'step'):
+        if self.current_tok.matches(TT_KEYWORD, "step"):
             res.register_advancement()
             self.advance()
 
@@ -1263,11 +1684,14 @@ class Parser:
         else:
             step_value = None
 
-        if not self.current_tok.matches(TT_KEYWORD, 'then'):
-            return res.failure(InvalidSyntaxError(
-                self.current_tok.pos_start, self.current_tok.pos_end,
-                f"Expected 'then'"
-            ))
+        if not self.current_tok.matches(TT_KEYWORD, "do"): #changed from "then" to "do"
+            return res.failure(
+                InvalidSyntaxError(
+                    self.current_tok.pos_start,
+                    self.current_tok.pos_end,
+                    f"Expected 'do'",
+                )
+            )
 
         res.register_advancement()
         self.advance()
@@ -1280,31 +1704,41 @@ class Parser:
             if res.error:
                 return res
 
-            if not self.current_tok.matches(TT_KEYWORD, 'end'):
-                return res.failure(InvalidSyntaxError(
-                    self.current_tok.pos_start, self.current_tok.pos_end,
-                    f"Expected 'end'"
-                ))
+            if not self.current_tok.matches(TT_KEYWORD, "end"):
+                return res.failure(
+                    InvalidSyntaxError(
+                        self.current_tok.pos_start,
+                        self.current_tok.pos_end,
+                        f"Expected 'end'",
+                    )
+                )
 
             res.register_advancement()
             self.advance()
 
-            return res.success(ForNode(var_name, start_value, end_value, step_value, body, True))
+            return res.success(
+                ForNode(var_name, start_value, end_value, step_value, body, True)
+            )
 
         body = res.register(self.statement())
         if res.error:
             return res
 
-        return res.success(ForNode(var_name, start_value, end_value, step_value, body, False))
+        return res.success(
+            ForNode(var_name, start_value, end_value, step_value, body, False)
+        )
 
     def while_expr(self):
         res = ParseResult()
 
-        if not self.current_tok.matches(TT_KEYWORD, 'while'):
-            return res.failure(InvalidSyntaxError(
-                self.current_tok.pos_start, self.current_tok.pos_end,
-                f"Expected 'while'"
-            ))
+        if not self.current_tok.matches(TT_KEYWORD, "while"):
+            return res.failure(
+                InvalidSyntaxError(
+                    self.current_tok.pos_start,
+                    self.current_tok.pos_end,
+                    f"Expected 'while'",
+                )
+            )
 
         res.register_advancement()
         self.advance()
@@ -1313,16 +1747,19 @@ class Parser:
         if res.error:
             return res
 
-        if not self.current_tok.matches(TT_KEYWORD, 'then'):
-            return res.failure(InvalidSyntaxError(
-                self.current_tok.pos_start, self.current_tok.pos_end,
-                f"Expected 'then'"
-            ))
+        if not self.current_tok.matches(TT_KEYWORD, "do"): #changed from "then" to "do"
+            return res.failure(
+                InvalidSyntaxError(
+                    self.current_tok.pos_start,
+                    self.current_tok.pos_end,
+                    f"Expected 'do'",
+                )
+            )
 
         res.register_advancement()
         self.advance()
 
-        if self.current_tok.type == TT_NEWLINE:
+        if self.current_tok.restype == TT_NEWLINE:
             res.register_advancement()
             self.advance()
 
@@ -1330,11 +1767,14 @@ class Parser:
             if res.error:
                 return res
 
-            if not self.current_tok.matches(TT_KEYWORD, 'end'):
-                return res.failure(InvalidSyntaxError(
-                    self.current_tok.pos_start, self.current_tok.pos_end,
-                    f"Expected 'end'"
-                ))
+            if not self.current_tok.matches(TT_KEYWORD, "end"):
+                return res.failure(
+                    InvalidSyntaxError(
+                        self.current_tok.pos_start,
+                        self.current_tok.pos_end,
+                        f"Expected 'end'",
+                    )
+                )
 
             res.register_advancement()
             self.advance()
@@ -1350,11 +1790,14 @@ class Parser:
     def func_def(self):
         res = ParseResult()
 
-        if not self.current_tok.matches(TT_KEYWORD, 'func'):
-            return res.failure(InvalidSyntaxError(
-                self.current_tok.pos_start, self.current_tok.pos_end,
-                f"Expected 'func'"
-            ))
+        if not self.current_tok.matches(TT_KEYWORD, "func"):
+            return res.failure(
+                InvalidSyntaxError(
+                    self.current_tok.pos_start,
+                    self.current_tok.pos_end,
+                    f"Expected 'func'",
+                )
+            )
 
         res.register_advancement()
         self.advance()
@@ -1364,17 +1807,23 @@ class Parser:
             res.register_advancement()
             self.advance()
             if self.current_tok.type != TT_LPAREN:
-                return res.failure(InvalidSyntaxError(
-                    self.current_tok.pos_start, self.current_tok.pos_end,
-                    f"Expected '('"
-                ))
+                return res.failure(
+                    InvalidSyntaxError(
+                        self.current_tok.pos_start,
+                        self.current_tok.pos_end,
+                        f"Expected '('",
+                    )
+                )
         else:
             var_name_tok = None
             if self.current_tok.type != TT_LPAREN:
-                return res.failure(InvalidSyntaxError(
-                    self.current_tok.pos_start, self.current_tok.pos_end,
-                    f"Expected identifier or '('"
-                ))
+                return res.failure(
+                    InvalidSyntaxError(
+                        self.current_tok.pos_start,
+                        self.current_tok.pos_end,
+                        f"Expected identifier or '('",
+                    )
+                )
 
         res.register_advancement()
         self.advance()
@@ -1390,26 +1839,35 @@ class Parser:
                 self.advance()
 
                 if self.current_tok.type != TT_IDENTIFIER:
-                    return res.failure(InvalidSyntaxError(
-                        self.current_tok.pos_start, self.current_tok.pos_end,
-                        f"Expected identifier"
-                    ))
+                    return res.failure(
+                        InvalidSyntaxError(
+                            self.current_tok.pos_start,
+                            self.current_tok.pos_end,
+                            f"Expected identifier",
+                        )
+                    )
 
                 arg_name_toks.append(self.current_tok)
                 res.register_advancement()
                 self.advance()
 
             if self.current_tok.type != TT_RPAREN:
-                return res.failure(InvalidSyntaxError(
-                    self.current_tok.pos_start, self.current_tok.pos_end,
-                    f"Expected ',' or ')'"
-                ))
+                return res.failure(
+                    InvalidSyntaxError(
+                        self.current_tok.pos_start,
+                        self.current_tok.pos_end,
+                        f"Expected ',' or ')'",
+                    )
+                )
         else:
             if self.current_tok.type != TT_RPAREN:
-                return res.failure(InvalidSyntaxError(
-                    self.current_tok.pos_start, self.current_tok.pos_end,
-                    f"Expected identifier or ')'"
-                ))
+                return res.failure(
+                    InvalidSyntaxError(
+                        self.current_tok.pos_start,
+                        self.current_tok.pos_end,
+                        f"Expected identifier or ')'",
+                    )
+                )
 
         res.register_advancement()
         self.advance()
@@ -1422,18 +1880,16 @@ class Parser:
             if res.error:
                 return res
 
-            return res.success(FuncDefNode(
-                var_name_tok,
-                arg_name_toks,
-                body,
-                True
-            ))
+            return res.success(FuncDefNode(var_name_tok, arg_name_toks, body, True))
 
         if self.current_tok.type != TT_NEWLINE:
-            return res.failure(InvalidSyntaxError(
-                self.current_tok.pos_start, self.current_tok.pos_end,
-                f"Expected '->' or NEWLINE"
-            ))
+            return res.failure(
+                InvalidSyntaxError(
+                    self.current_tok.pos_start,
+                    self.current_tok.pos_end,
+                    f"Expected '->' or NEWLINE",
+                )
+            )
 
         res.register_advancement()
         self.advance()
@@ -1442,21 +1898,19 @@ class Parser:
         if res.error:
             return res
 
-        if not self.current_tok.matches(TT_KEYWORD, 'end'):
-            return res.failure(InvalidSyntaxError(
-                self.current_tok.pos_start, self.current_tok.pos_end,
-                f"Expected 'end'"
-            ))
+        if not self.current_tok.matches(TT_KEYWORD, "end"):
+            return res.failure(
+                InvalidSyntaxError(
+                    self.current_tok.pos_start,
+                    self.current_tok.pos_end,
+                    f"Expected 'end'",
+                )
+            )
 
         res.register_advancement()
         self.advance()
 
-        return res.success(FuncDefNode(
-            var_name_tok,
-            arg_name_toks,
-            body,
-            False
-        ))
+        return res.success(FuncDefNode(var_name_tok, arg_name_toks, body, False))
 
     ###################################
 
@@ -1469,7 +1923,10 @@ class Parser:
         if res.error:
             return res
 
-        while self.current_tok.type in ops or (self.current_tok.type, self.current_tok.value) in ops:
+        while (
+            self.current_tok.type in ops
+            or (self.current_tok.type, self.current_tok.value) in ops
+        ):
             op_tok = self.current_tok
             res.register_advancement()
             self.advance()
@@ -1481,34 +1938,35 @@ class Parser:
         return res.success(left)
 
 
-
 #######################
 # Interpreter
 #######################
 class Interpreter:
     def visit(self, node, context):
-        method_name = f'visit_{type(node).__name__}'
+        method_name = f"visit_{type(node).__name__}"
         method = getattr(self, method_name, self.no_visit_method)
         return method(node, context)
 
     def no_visit_method(self, node, context):
-        raise Exception(f'No visit_{type(node).__name__} method defined')
+        raise Exception(f"No visit_{type(node).__name__} method defined")
 
     ###################################
 
-    def visit_NumberNode(self, node, context):
+    def visit_NumberNode(self, node, context: Context):
         return RTResult().success(
-            Number(node.tok.value).set_context(
-                context).set_pos(node.pos_start, node.pos_end)
+            Number(node.tok.value)
+            .set_context(context)
+            .set_pos(node.pos_start, node.pos_end)
         )
 
-    def visit_StringNode(self, node, context):
+    def visit_StringNode(self, node, context: Context):
         return RTResult().success(
-            String(node.tok.value).set_context(
-                context).set_pos(node.pos_start, node.pos_end)
+            String(node.tok.value)
+            .set_context(context)
+            .set_pos(node.pos_start, node.pos_end)
         )
 
-    def visit_ListNode(self, node, context):
+    def visit_ListNode(self, node, context: Context):
         res = RTResult()
         elements = []
 
@@ -1518,26 +1976,30 @@ class Interpreter:
                 return res
 
         return res.success(
-            List(elements).set_context(context).set_pos(
-                node.pos_start, node.pos_end)
+            List(elements).set_context(context).set_pos(node.pos_start, node.pos_end)
         )
 
-    def visit_VarAccessNode(self, node, context):
+    def visit_VarAccessNode(self, node, context: Context):
         res = RTResult()
         var_name = node.var_name_tok.value
         value = context.symbol_table.get(var_name)
 
-        if not value:
-            return res.failure(RTError(
-                node.pos_start, node.pos_end,
-                f"'{var_name}' is not defined",
-                context
-            ))
+        if value is None:
+            value = context.private_symbol_table.get(var_name) 
+            if value is None:
+                return res.failure(
+                    RTError(
+                        node.pos_start,
+                        node.pos_end,
+                        f"'{var_name}' is not defined",
+                        context,
+                    )
+                )
 
         value = value.copy().set_pos(node.pos_start, node.pos_end).set_context(context)
         return res.success(value)
 
-    def visit_VarAssignNode(self, node, context):
+    def visit_VarAssignNode(self, node, context: Context):
         res = RTResult()
         var_name = node.var_name_tok.value
         value = res.register(self.visit(node.value_node, context))
@@ -1545,6 +2007,7 @@ class Interpreter:
             return res
 
         context.symbol_table.set(var_name, value)
+        context.private_symbol_table.set(var_name, value)
         return res.success(value)
 
     def visit_BinOpNode(self, node, context):
@@ -1574,15 +2037,17 @@ class Interpreter:
             result, error = left.get_comparison_ne(right)
         elif node.op_tok.type == TT_LT:
             result, error = left.get_comparison_lt(right)
+        elif node.op_tok.type == TT_DOT:
+            result, error = left.dotted_by(right)
         elif node.op_tok.type == TT_GT:
             result, error = left.get_comparison_gt(right)
         elif node.op_tok.type == TT_LTE:
             result, error = left.get_comparison_lte(right)
         elif node.op_tok.type == TT_GTE:
             result, error = left.get_comparison_gte(right)
-        elif node.op_tok.matches(TT_KEYWORD, 'and'):
+        elif node.op_tok.matches(TT_KEYWORD, "and"):
             result, error = left.anded_by(right)
-        elif node.op_tok.matches(TT_KEYWORD, 'or'):
+        elif node.op_tok.matches(TT_KEYWORD, "or"):
             result, error = left.ored_by(right)
 
         if error:
@@ -1600,7 +2065,7 @@ class Interpreter:
 
         if node.op_tok.type == TT_MINUS:
             number, error = number.multed_by(Number(-1))
-        elif node.op_tok.matches(TT_KEYWORD, 'not'):
+        elif node.op_tok.matches(TT_KEYWORD, "not"):
             number, error = number.notted()
 
         if error:
@@ -1644,8 +2109,7 @@ class Interpreter:
             return res
 
         if node.step_value_node:
-            step_value = res.register(
-                self.visit(node.step_value_node, context))
+            step_value = res.register(self.visit(node.step_value_node, context))
             if res.should_return():
                 return res
         else:
@@ -1654,16 +2118,25 @@ class Interpreter:
         i = start_value.value
 
         if step_value.value >= 0:
-            def condition(): return i < end_value.value
+
+            def condition():
+                return i < end_value.value
+
         else:
-            def condition(): return i > end_value.value
+
+            def condition():
+                return i > end_value.value
 
         while condition():
             context.symbol_table.set(node.var_name_tok.value, Number(i))
             i += step_value.value
 
             value = res.register(self.visit(node.body_node, context))
-            if res.should_return() and res.loop_should_continue == False and res.loop_should_break == False:
+            if (
+                res.should_return()
+                and res.loop_should_continue == False
+                and res.loop_should_break == False
+            ):
                 return res
 
             if res.loop_should_continue:
@@ -1675,9 +2148,11 @@ class Interpreter:
             elements.append(value)
 
         return res.success(
-            Null.null if node.should_return_null else
-            List(elements).set_context(context).set_pos(
-                node.pos_start, node.pos_end)
+            Null.null
+            if node.should_return_null
+            else List(elements)
+            .set_context(context)
+            .set_pos(node.pos_start, node.pos_end)
         )
 
     def visit_WhileNode(self, node, context):
@@ -1693,7 +2168,11 @@ class Interpreter:
                 break
 
             value = res.register(self.visit(node.body_node, context))
-            if res.should_return() and res.loop_should_continue == False and res.loop_should_break == False:
+            if (
+                res.should_return()
+                and res.loop_should_continue == False
+                and res.loop_should_break == False
+            ):
                 return res
 
             if res.loop_should_continue:
@@ -1705,9 +2184,11 @@ class Interpreter:
             elements.append(value)
 
         return res.success(
-            Null.null if node.should_return_null else
-            List(elements).set_context(context).set_pos(
-                node.pos_start, node.pos_end)
+            Null.null
+            if node.should_return_null
+            else List(elements)
+            .set_context(context)
+            .set_pos(node.pos_start, node.pos_end)
         )
 
     def visit_FuncDefNode(self, node, context):
@@ -1716,8 +2197,11 @@ class Interpreter:
         func_name = node.var_name_tok.value if node.var_name_tok else None
         body_node = node.body_node
         arg_names = [arg_name.value for arg_name in node.arg_name_toks]
-        func_value = Function(func_name, body_node, arg_names, node.should_auto_return).set_context(
-            context).set_pos(node.pos_start, node.pos_end)
+        func_value = (
+            Function(func_name, body_node, arg_names, node.should_auto_return)
+            .set_context(context)
+            .set_pos(node.pos_start, node.pos_end)
+        )
 
         if node.var_name_tok:
             context.symbol_table.set(func_name, func_value)
@@ -1741,8 +2225,11 @@ class Interpreter:
         return_value = res.register(value_to_call.execute(args))
         if res.should_return():
             return res
-        return_value = return_value.copy().set_pos(
-            node.pos_start, node.pos_end).set_context(context)
+        return_value = (
+            return_value.copy()
+            .set_pos(node.pos_start, node.pos_end)
+            .set_context(context)
+        )
 
         return res.success(return_value)
 
@@ -1764,9 +2251,62 @@ class Interpreter:
     def visit_BreakNode(self, node, context):
         return RTResult().success_break()
 
+    def visit_ImportNode(self, node: ImportNode, context: Context):
+        res = RTResult()
+        path = node.file_path
+
+        if not os.path.isfile(path):
+            tmp_path = os.path.join(STD_PATH, node.file_path)
+            if os.path.isfile(tmp_path):
+                path = os.path.join(STD_PATH, node.file_path)
+            else:
+                return res.failure(
+                RTError(
+                    node.pos_start,
+                    node.pos_end,
+                    f"No module named {tmp_path}",
+                    context,
+                ))
+
+        result, err = import_module(path, self, context)
+        if err:
+            if isinstance(err, Error):
+                return res.failure(err)
+            return res.failure(
+                RTError(
+                    node.pos_start,
+                    node.pos_end,
+                    err.error.details,
+                    context,
+            ))
+        
+        return res.success(result)
 
 
+    # code for +=
+    '''
+    classs implimentation for reference
+    class PequalNode:
+        def __init__(self, var_name_tok, value_node):
+            self.var_name_tok = var_name_tok
+            self.value_node = value_node
 
+            self.pos_start = self.var_name_tok.pos_start
+            self.pos_end = self.value_node.pos_end
+    '''
+
+    def visit_PequalNode(self, node, context):
+        res = RTResult()
+
+        var_name = node.var_name_tok.value
+        value = res.register(self.visit(node.value_node, context))
+        if res.should_return():
+            return res
+
+        context.symbol_table.set(var_name, value)
+
+        return res.success(value)
+    
 #######################################
 # SETUP GLOBAL VARIABLES FOR PRE BUILT FUNCTIONS / VARIABLES
 #######################################
@@ -1783,7 +2323,7 @@ global_symbol_table.set("float", String("<float>"))
 global_symbol_table.set("print", BuiltInFunction.print)
 global_symbol_table.set("sets", BuiltInFunction.print_ret)
 global_symbol_table.set("gets", BuiltInFunction.input)
-global_symbol_table.set("clear", BuiltInFunction.clear) 
+global_symbol_table.set("clear", BuiltInFunction.clear)
 global_symbol_table.set("is_num", BuiltInFunction.is_number)
 global_symbol_table.set("is_str", BuiltInFunction.is_string)
 global_symbol_table.set("is_list", BuiltInFunction.is_list)
@@ -1798,6 +2338,7 @@ global_symbol_table.set("sleep", BuiltInFunction.sleep)
 global_symbol_table.set("exit", BuiltInFunction.exit)
 global_symbol_table.set("tostr", BuiltInFunction.tostr)
 global_symbol_table.set("toint", BuiltInFunction.toint)
+global_symbol_table.set("tofloat", BuiltInFunction.tofloat)
 global_symbol_table.set("File", BuiltInFunction.open_stream)
 global_symbol_table.set("read_stream", BuiltInFunction.read_stream)
 global_symbol_table.set("write_stream", BuiltInFunction.write_stream)
@@ -1814,15 +2355,24 @@ global_symbol_table.set("rand_pick", BuiltInFunction.rand_pick)
 global_symbol_table.set("help", BuiltInFunction.help)
 global_symbol_table.set("sys", BuiltInFunction.sys)
 global_symbol_table.set("version", BuiltInFunction.version)
+global_symbol_table.set("join", BuiltInFunction.join)
+global_symbol_table.set("split", BuiltInFunction.split)
+
+private_symbol_table = SymbolTable()
+private_symbol_table.set('is_main', Number(0))
+
 
 #######################################
 # RUN
 #######################################
 
+
 def run(fn, text):
     # Generate tokens
+    fpath = Path(fn)
     lexer = Lexer(fn, text)
     tokens, error = lexer.make_tokens()
+    print(tokens)
     if error:
         return None, error
 
@@ -1838,15 +2388,17 @@ def run(fn, text):
 
         # Run program
         interpreter = Interpreter()
-        context = Context('<main>')
+        context = Context(f"<main>")
         context.symbol_table = global_symbol_table
+        context.private_symbol_table = private_symbol_table
+        context.private_symbol_table.set("is_main", Number(1))
         result = interpreter.visit(ast.node, context)
-        result.value = '' if str(result.value) == 'null' else result.value
-
+        result.value = "" if str(result.value) == "null" else result.value
         return result.value, result.error
     except KeyboardInterrupt:
         err = KeyboardInterruptError(
-                position_start, position_end,
-                "Execution interrupted"
-            )
+            position_start, position_end, "Execution interrupted"
+        )
         return None, err
+
+

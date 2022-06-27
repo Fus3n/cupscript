@@ -1,0 +1,15 @@
+######## function #########
+
+var string1 = "Hello"
+var sep = ", "
+var string2 = "world"
+
+var temp =  string1 + sep + string2
+
+func join_str(s1, s2, sep)
+	res = append(s1, sep) + s2
+	# alternative: res = s1 + sep + s2
+	return res
+end
+
+print(join_str(string1, string2, sep)) # >> Hello, world
