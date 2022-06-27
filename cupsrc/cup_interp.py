@@ -2372,7 +2372,6 @@ def run(fn, text):
     fpath = Path(fn)
     lexer = Lexer(fn, text)
     tokens, error = lexer.make_tokens()
-    print(tokens)
     if error:
         return None, error
 
