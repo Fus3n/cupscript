@@ -98,4 +98,4 @@ end
 ```
 
 
-Check [example.cup](https://github.com/Fus3n/cupscript/blob/main/example.cup) for more information / Full Overview
+Check [example](https://github.com/Fus3n/cupscript/blob/main/examples) folder for more information / Full Overview
