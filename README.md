@@ -5,6 +5,8 @@ CupScript is a simple scripting language made using python
 It includes some basic functionality like variables, loops, and some other built in functions but it is not a full language.
 I made it to learn how programming languages work and how to make a language specifically interpreted languages.
 
+**NOTE: This is not meant for general use its just a fun personal project but you're free to try it out or use it if you can**
+
 Heres an installation/run guide if you want to try it out.
 
 # Installation:
