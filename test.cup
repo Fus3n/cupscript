@@ -1,2 +1,9 @@
-if true then
-    print("true")
+
+func main()
+    
+end
+
+
+if is_main then
+    main()
+end
