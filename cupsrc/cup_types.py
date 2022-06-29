@@ -59,6 +59,7 @@ class Object:
     def __init__(self):
         self.set_pos()
         self.set_context()
+        self.fields = []
 
     def set_pos(self, pos_start=None, pos_end=None):
         self.pos_start = pos_start
@@ -142,6 +143,13 @@ class Object:
             self.context,
         )
 
+    def get_field(self, field_name):
+        return None, RTError(
+            self.pos_start,
+            self.pos_end,
+            f"{self} has no field named '{field_name}'",
+            self.context,
+        )
 
 class BaseFunction(Object):
     def __init__(self, name):
@@ -196,6 +204,7 @@ class BaseFunction(Object):
 
 
 class Null(Object):
+    __slots__ = ("value")
     def __init__(self, value):
         super().__init__()
         self.value = value
@@ -226,6 +235,8 @@ Null.null = Null("null")
 
 
 class Number(Object):
+    __slots__ = ("value")
+
     def __init__(self, value):
         super().__init__()
         self.value = value
@@ -406,9 +417,14 @@ Number.true = Number(1)
 
 
 class String(Object):
+    __slots__ = ("value")
+
     def __init__(self, value):
         super().__init__()
         self.value = value
+        self.fields = [
+            "size"
+        ]
 
     def __len__(self):
         return len(self.value)
@@ -495,8 +511,21 @@ class String(Object):
                 self, other, f"Can't get a string from a type of '{other.type}'"
             )
             
+    def get_field(self, field_name):
+        if field_name == "size":
+            return Number(len(self.value)).set_context(self.context), None
+        else:
+            return None, RTError(
+                self.pos_start,
+                self.pos_end,
+                f"String has no field '{field_name}'",
+                self.context,
+            )
+    
 
 class List(Object):
+    __slots__ = ("elements")
+
     def __init__(self, elements):
         super().__init__()
         self.elements = elements
@@ -570,6 +599,8 @@ class List(Object):
 
 
 class File(Object):
+    __slots__ = ("name", "path")
+
     def __init__(self, name, path):
         super().__init__()
         self.name = name

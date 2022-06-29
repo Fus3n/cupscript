@@ -45,7 +45,6 @@ lambda_example("Cuppy")
 # null = 0
 
 
-
 print(is_func(join)) # >> 1
 print(is_str(join)) # >> 0
 print(is_str("Hello")) # >> 1

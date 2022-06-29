@@ -24,11 +24,11 @@ print(rand_int(0, 100)) # random ranged int
 
 print(rand_pick(["hello", 1, 2, 5])) # random pick for lists
 
-print(typeof(join)) # >> <function>
+print(type_of(join)) # >> <function>
 
 ######## File operation #########
 
-var f = File("test.txt")
+var f = open_stream("test.txt")
 
 
 if not file_exists(f) then

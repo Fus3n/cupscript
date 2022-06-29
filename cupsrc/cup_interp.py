@@ -23,6 +23,11 @@ from .cup_utils import Token
 import os
 from pathlib import Path
 
+# global vars
+BUILTIN_FUNCTIONS = []
+global_symbol_table = SymbolTable()
+
+
 def import_module(fn, interpreter, context):
     # Generate tokens
     res = RTResult()
@@ -69,6 +74,7 @@ class Function(BaseFunction):
     """
     Function Base Class
     """
+    __slots__ = ("body_node", "arg_names", "should_auto_return")
 
     def __init__(self, name, body_node, arg_names, should_auto_return):
         super().__init__(name)
@@ -156,17 +162,13 @@ class BuiltInFunction(BaseFunction):
 
     execute_print.arg_names = ["value"]
 
-    def execute_print_ret(self, exec_ctx):
-        return RTResult().success(String(str(exec_ctx.symbol_table.get("value"))))
 
-    execute_print_ret.arg_names = ["value"]
-
-    def execute_input(self, exec_ctx):
+    def execute_gets(self, exec_ctx):
         prompt = exec_ctx.symbol_table.get("prompt")
         text = input(prompt)
         return RTResult().success(String(text))
 
-    execute_input.arg_names = ["prompt"]
+    execute_gets.arg_names = ["prompt"]
 
     def execute_clear(self, exec_ctx):
         os.system("cls" if os.name == "nt" else "clear")
@@ -385,7 +387,7 @@ class BuiltInFunction(BaseFunction):
 
     execute_exit.arg_names = []
 
-    def execute_open_stream(self, exec_ctx):
+    def execute_open_file(self, exec_ctx):
         file_path = exec_ctx.symbol_table.get("file_path")
 
         if not isinstance(file_path, String):
@@ -411,7 +413,7 @@ class BuiltInFunction(BaseFunction):
                 )
             )
 
-    execute_open_stream.arg_names = ["file_path"]
+    execute_open_file.arg_names = ["file_path"]
 
     def execute_read_stream(self, exec_ctx):
         file = exec_ctx.symbol_table.get("file")
@@ -874,7 +876,7 @@ class BuiltInFunction(BaseFunction):
         
     execute_join.arg_names = ['sep', "elements"]
 
-    def execute_help(self, exec_ctx):
+    def execute_help_for(self, exec_ctx):
         name = exec_ctx.symbol_table.get("funcname")
         if isinstance(name, String):
             if name.value == '':
@@ -898,7 +900,12 @@ class BuiltInFunction(BaseFunction):
                 )
             )
 
-    execute_help.arg_names = ['funcname']
+    execute_help_for.arg_names = ['funcname']
+
+    def execute_help(self, exec_ctx):
+        return RTResult().success(String(helpMsg))
+
+    execute_help.arg_names = []
 
     def execute_sys(self, exec_ctx):
         command = exec_ctx.symbol_table.get("command")
@@ -929,7 +936,7 @@ class BuiltInFunction(BaseFunction):
 
     execute_sys.arg_names = ["command"]
 
-    def execute_version(self, exec_ctx):
+    def execute_version(self, _):
         return RTResult().success(String(VERSION))
 
     execute_version.arg_names = []
@@ -965,47 +972,21 @@ class BuiltInFunction(BaseFunction):
     execute_split.arg_names = ["string", "sep"]
 
 
+
 #######################################
 # SETUP VARIABLE FOR ALL BUILT IN FUNCTION
 #######################################
 
-BuiltInFunction.print = BuiltInFunction("print")
-BuiltInFunction.print_ret = BuiltInFunction("print_ret")
-BuiltInFunction.input = BuiltInFunction("input")
-BuiltInFunction.clear = BuiltInFunction("clear")
-BuiltInFunction.is_number = BuiltInFunction("is_number")
-BuiltInFunction.is_string = BuiltInFunction("is_string")
-BuiltInFunction.is_list = BuiltInFunction("is_list")
-BuiltInFunction.is_function = BuiltInFunction("is_function")
-BuiltInFunction.append = BuiltInFunction("append")
-BuiltInFunction.pop = BuiltInFunction("pop")
-BuiltInFunction.extend = BuiltInFunction("extend")
-BuiltInFunction.len = BuiltInFunction("len")
-BuiltInFunction.run = BuiltInFunction("run")
-BuiltInFunction.type_of = BuiltInFunction("type_of")
-BuiltInFunction.exit = BuiltInFunction("exit")
-BuiltInFunction.sleep = BuiltInFunction("sleep")
-BuiltInFunction.tostr = BuiltInFunction("tostr")
-BuiltInFunction.toint = BuiltInFunction("toint")
-BuiltInFunction.tofloat = BuiltInFunction("tofloat")
-BuiltInFunction.open_stream = BuiltInFunction("open_stream")
-BuiltInFunction.read_stream = BuiltInFunction("read_stream")
-BuiltInFunction.write_stream = BuiltInFunction("write_stream")
-BuiltInFunction.file_exists = BuiltInFunction("file_exists")
-BuiltInFunction.get_now = BuiltInFunction("get_now")
-BuiltInFunction.get_env = BuiltInFunction("get_env")
-BuiltInFunction.set_env = BuiltInFunction("set_env")
-BuiltInFunction.get_dir = BuiltInFunction("get_dir")
-BuiltInFunction.set_dir = BuiltInFunction("set_dir")
-BuiltInFunction.random = BuiltInFunction("random")
-BuiltInFunction.rand_int = BuiltInFunction("rand_int")
-BuiltInFunction.rand_seed = BuiltInFunction("rand_seed")
-BuiltInFunction.rand_pick = BuiltInFunction("rand_pick")
-BuiltInFunction.help = BuiltInFunction("help")
-BuiltInFunction.sys = BuiltInFunction("sys")
-BuiltInFunction.version = BuiltInFunction("version")
-BuiltInFunction.join = BuiltInFunction("join")
-BuiltInFunction.split = BuiltInFunction("split")
+# BuiltInFunction.print = BuiltInFunction("print")
+# now do this for all the function that starts with execute in BuiltInFunction
+for func in [
+    attr for attr in dir(BuiltInFunction) if attr.startswith("execute_")
+]:
+    # get only the part after execute_
+    func_name = func[8:]
+    setattr(BuiltInFunction, func_name, eval(f"BuiltInFunction('{func_name}')"))
+    BUILTIN_FUNCTIONS.append(func_name)
+
 
 
 #######################################
@@ -1051,15 +1032,10 @@ class ParseResult:
 #######################################
 # PARSER
 #######################################
-class ImportNode:
-    def __init__(self, module_name_tok):
-        self.module_name_tok = module_name_tok
-        self.file_path = module_name_tok.value
-
-        self.pos_start = self.module_name_tok.pos_start
-        self.pos_end = self.module_name_tok.pos_end
 
 class Parser:
+    __slots__ = ('tokens', 'tok_idx', 'current_tok')
+
     def __init__(self, tokens):
         self.tokens = tokens
         self.tok_idx = -1
@@ -1169,13 +1145,19 @@ class Parser:
             )
         return res.success(expr)
 
-    def peek_tok(self):
+    def peek_tok(self) -> Token:
         if self.tok_idx + 1 >= len(self.tokens):
             return None
         return self.tokens[self.tok_idx + 1]
 
+    def peek_tok_back(self) -> Token:
+        if self.tok_idx - 1 < 0:
+            return None
+        return self.tokens[self.tok_idx - 1]
+
     def expr(self):
         res = ParseResult()
+
 
         if self.current_tok.matches(TT_KEYWORD, "var"):
             res.register_advancement()
@@ -1236,6 +1218,9 @@ class Parser:
             return res.success(ImportNode(module))
 
 
+            
+
+
         node = res.register(
             self.bin_op(self.comp_expr, ((TT_KEYWORD, "and"), (TT_KEYWORD, "or")))
         )
@@ -1248,6 +1233,9 @@ class Parser:
                     "Expected 'var', 'if', 'for', 'while', 'func', int, float, identifier, '+', '-', '(', '[' or 'not'",
                 )
             )
+
+
+        
 
         return res.success(node)
 
@@ -1759,7 +1747,7 @@ class Parser:
         res.register_advancement()
         self.advance()
 
-        if self.current_tok.restype == TT_NEWLINE:
+        if self.current_tok.type == TT_NEWLINE:
             res.register_advancement()
             self.advance()
 
@@ -2283,80 +2271,25 @@ class Interpreter:
         return res.success(result)
 
 
-    # code for +=
-    '''
-    classs implimentation for reference
-    class PequalNode:
-        def __init__(self, var_name_tok, value_node):
-            self.var_name_tok = var_name_tok
-            self.value_node = value_node
-
-            self.pos_start = self.var_name_tok.pos_start
-            self.pos_end = self.value_node.pos_end
-    '''
-
-    def visit_PequalNode(self, node, context):
-        res = RTResult()
-
-        var_name = node.var_name_tok.value
-        value = res.register(self.visit(node.value_node, context))
-        if res.should_return():
-            return res
-
-        context.symbol_table.set(var_name, value)
-
-        return res.success(value)
     
 #######################################
 # SETUP GLOBAL VARIABLES FOR PRE BUILT FUNCTIONS / VARIABLES
 #######################################
 
-global_symbol_table = SymbolTable()
+
 global_symbol_table.set("null", Number.null)
 global_symbol_table.set("false", Number.false)
 global_symbol_table.set("true", Number.true)
-global_symbol_table.set("function", String("<function>"))
 global_symbol_table.set("list", String("<list>"))
 global_symbol_table.set("str", String("<str>"))
 global_symbol_table.set("int", String("<int>"))
 global_symbol_table.set("float", String("<float>"))
-global_symbol_table.set("print", BuiltInFunction.print)
-global_symbol_table.set("sets", BuiltInFunction.print_ret)
-global_symbol_table.set("gets", BuiltInFunction.input)
-global_symbol_table.set("clear", BuiltInFunction.clear)
-global_symbol_table.set("is_num", BuiltInFunction.is_number)
-global_symbol_table.set("is_str", BuiltInFunction.is_string)
-global_symbol_table.set("is_list", BuiltInFunction.is_list)
-global_symbol_table.set("is_func", BuiltInFunction.is_function)
-global_symbol_table.set("append", BuiltInFunction.append)
-global_symbol_table.set("pop", BuiltInFunction.pop)
-global_symbol_table.set("extend", BuiltInFunction.extend)
-global_symbol_table.set("len", BuiltInFunction.len)
+global_symbol_table.set("function", String("<function>"))
 global_symbol_table.set("Run", BuiltInFunction.run)
-global_symbol_table.set("typeof", BuiltInFunction.type_of)
-global_symbol_table.set("sleep", BuiltInFunction.sleep)
-global_symbol_table.set("exit", BuiltInFunction.exit)
-global_symbol_table.set("tostr", BuiltInFunction.tostr)
-global_symbol_table.set("toint", BuiltInFunction.toint)
-global_symbol_table.set("tofloat", BuiltInFunction.tofloat)
-global_symbol_table.set("File", BuiltInFunction.open_stream)
-global_symbol_table.set("read_stream", BuiltInFunction.read_stream)
-global_symbol_table.set("write_stream", BuiltInFunction.write_stream)
-global_symbol_table.set("file_exists", BuiltInFunction.file_exists)
-global_symbol_table.set("get_now", BuiltInFunction.get_now)
-global_symbol_table.set("get_env", BuiltInFunction.get_env)
-global_symbol_table.set("set_env", BuiltInFunction.set_env)
-global_symbol_table.set("get_dir", BuiltInFunction.get_dir)
-global_symbol_table.set("set_dir", BuiltInFunction.set_dir)
-global_symbol_table.set("random", BuiltInFunction.random)
-global_symbol_table.set("rand_int", BuiltInFunction.rand_int)
-global_symbol_table.set("rand_seed", BuiltInFunction.rand_seed)
-global_symbol_table.set("rand_pick", BuiltInFunction.rand_pick)
-global_symbol_table.set("help", BuiltInFunction.help)
-global_symbol_table.set("sys", BuiltInFunction.sys)
-global_symbol_table.set("version", BuiltInFunction.version)
-global_symbol_table.set("join", BuiltInFunction.join)
-global_symbol_table.set("split", BuiltInFunction.split)
+
+# load all builtin function to global symbol table
+for func in BUILTIN_FUNCTIONS:
+    global_symbol_table.set(func, getattr(BuiltInFunction, func))
 
 private_symbol_table = SymbolTable()
 private_symbol_table.set('is_main', Number(0))
@@ -2369,7 +2302,6 @@ private_symbol_table.set('is_main', Number(0))
 
 def run(fn, text):
     # Generate tokens
-    fpath = Path(fn)
     lexer = Lexer(fn, text)
     tokens, error = lexer.make_tokens()
     if error:
@@ -2387,7 +2319,7 @@ def run(fn, text):
 
         # Run program
         interpreter = Interpreter()
-        context = Context(f"<main>")
+        context = Context(f"<{fn}>")
         context.symbol_table = global_symbol_table
         context.private_symbol_table = private_symbol_table
         context.private_symbol_table.set("is_main", Number(1))

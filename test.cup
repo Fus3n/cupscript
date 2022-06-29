@@ -1,9 +1,10 @@
 
 func main()
-    
-end
+    l = "hello"
+    l += "Hello"
+    print(l)
 
 
-if is_main then
-    main()
 end
+
+main()

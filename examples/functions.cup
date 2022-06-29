@@ -1,10 +1,10 @@
 ######## function #########
 
-var string1 = "Hello"
-var sep = ", "
-var string2 = "world"
+string1 = "Hello"
+sep = ", "
+string2 = "world"
 
-var temp =  string1 + sep + string2
+temp =  string1 + sep + string2
 
 func join_str(s1, s2, sep)
 	res = append(s1, sep) + s2

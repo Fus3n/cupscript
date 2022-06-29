@@ -10,10 +10,8 @@
 ######## Display #########
 
 print("Hello world!")
-var s = sets("hello")
 
 # var name = gets("promp user: ") # prompt input 
-2+2
 
 sys("") # system command
 version() # get current version of CupScript

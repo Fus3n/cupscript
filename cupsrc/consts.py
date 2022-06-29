@@ -70,6 +70,8 @@ KEYWORDS = [
 
 helpMsg = """help - [
             <builtin function>:
+                help - print this message
+                help_for - print help for a function : args = function name -> string
                 clear - clear the screen -> null
                 exit - exit the script: -> null
                 print - print a string or any object : string, <- null
@@ -81,14 +83,15 @@ helpMsg = """help - [
                 is_str - check if the value is a string : args = any type -> bool
                 is_list - check if the value is a list -> bool : args = any type -> bool
                 is_func - check if the value is a function : args = any type -> bool
-                append - append a string to a string or any value to a list: args = string, number -> list
+                append - append a string to a string or any value to a list: args = object: string, value:any -> list
                 extend - extend a list with another list: args = list, list -> list
                 len - get the length of a list or string: args = string, list -> int
-                File - open a file for reading or writing : File("file_name") to do file operations i.e. read_stream/write_stream
+                open_file - open a file for reading or writing : open_file("file_name") returns File object to do file operations use read_stream/write_stream
                 read_stream - read string from entire file: args = File
                 write_stream - write string to file: args = File, string
                 file_exists - check if file exists: args = string -> bool
                 sleep - sleep for a number of seconds: args = int -> null
+                split - split a string into a list: args = string: string, seperator: string -> list
                 tostr - convert any value to a string: args = any type -> string
                 toint - convert a String/Number value to an integer: args = string, number -> int
                 tofloat - convert a String/Number value to a float: args = string, number -> float
@@ -126,6 +129,21 @@ help_dict =  {
         'args': '',
         'text': 'clear the screen',
         'returns': 'null'
+    },
+    'help': {
+        'args': '',
+        'text': 'print this message',
+        'returns': 'string'
+    },
+    'help_for': {
+        'args': 'function_name',
+        'text': 'print help for a function',
+        'returns': 'string'
+    },
+    'split': {
+        'args': 'string, separator',
+        'text': 'split a string into a list',
+        'returns': 'list'
     },
     'exit': {
         'args': '',
@@ -192,9 +210,9 @@ help_dict =  {
         'text': 'get the length of a list or string',
         'returns': 'int'
     },
-    'File': {
+    'open_file': {
         'args': 'string',
-        'text': 'open a file for reading or writing',
+        'text': 'open a file for reading or writing to do file operations use read_stream/write_stream',
         'returns': 'File'
     },
     'read_stream': {

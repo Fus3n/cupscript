@@ -8,6 +8,8 @@ from .error import IllegalCharError, ExpectedCharError
 
 
 class Lexer:
+    __slots__ = ['fn', 'text', 'pos', 'current_char', 'tokens']
+
     def __init__(self, fn, text):
         self.fn = fn
         self.text = text

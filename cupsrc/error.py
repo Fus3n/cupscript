@@ -38,6 +38,8 @@ position_start = None
 position_end = None
 
 class Error:
+    __slots__ = ['pos_start', 'pos_end', 'error_name', 'details']
+
     def __init__(self, pos_start, pos_end, error_name, details):
         global position_start, position_end
         position_end = pos_end
