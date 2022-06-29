@@ -9,7 +9,7 @@ DIGITS = string.digits
 LETTERS = string.ascii_letters
 LETTERS_DIGITS = LETTERS + DIGITS
 
-VERSION = '0.2.1'
+VERSION = '0.2.2'
 
 STD_PATH = os.path.join(os.getcwd(), 'cupsrc/std')
 
