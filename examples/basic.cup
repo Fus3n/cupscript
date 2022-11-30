@@ -13,8 +13,8 @@ print("Hello world!")
 
 # var name = gets("promp user: ") # prompt input 
 
-sys("") # system command
-version() # get current version of CupScript
+sys("echo hello") # system command
+print(version()) # get current version of CupScript
 
 # clear() # clear terminal 
 
@@ -28,3 +28,4 @@ var sep = ", "
 var string2 = "world"
 
 var temp =  string1 + sep + string2
+print(temp)

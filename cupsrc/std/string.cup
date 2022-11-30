@@ -10,7 +10,12 @@ hexdigits = digits + "abcdef" + "ABCDEF"
 func reverse_string(inp)
     res = ""
     for i = len(inp)-1 till -1 step -1 do
-        res += (inp.i)
+        res = res + (inp>i)
     end
     return res
 end
+
+# Create a script that can simple config file it goes as:
+# 1. can parse this: "key=value"
+# 2. append it using append funciton in a 2D list for example: [["key", "value"], ["key2", "value2"]]
+# 3. print all the key value pair found in config.ini file

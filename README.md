@@ -14,7 +14,7 @@ Heres an installation/run guide if you want to try it out.
     git clone https://github.com/Fus3n/cupscript
     cd cupscript
 
-there are no requirements, but you will need python 3.6 or higher to run it.
+there are no requirements, but you will need python 3.9 or higher to run it.
 
 # Run Scripts/cupshell:
 
@@ -55,7 +55,7 @@ print("Hello " + name)
 ### Definitions
 
 ```ruby
-a = [1, 2, 3]
+a = [1, 2, 3, [4, 5, 6]]
 
 b = 5
 # or
@@ -63,7 +63,8 @@ var b = 5
 
 c = "Hello World"
 
-b = b + a.0;  # 'a.0' -> accesing the first element in the list 
+b = b + a>0;  # 'a>0' -> accesing the first element in the list 
+d = a>3>0 # accesing the 3rd element and the first element of that list python equivalent: a[3][0]
 
 func add(a, b)
     return a + b
@@ -81,9 +82,9 @@ add_two(5, 5)
 for i = 0 till 100 do
 	if i % 3 == 0 and i % 5 == 0 then
 		print("fizzbuzz")
-	elseif i % 3 == 0 then
+	else if i % 3 == 0 then
 		print("fizz")
-	elseif i % 5 == 0 then
+	else if i % 5 == 0 then
 		print("buzz")
 	else
 		print(i)

@@ -272,7 +272,7 @@ class BuiltInFunction(BaseFunction):
 
     execute_pop.arg_names = ["list", "index"]
 
-    def execute_extend(self, exec_ctx):
+    def execute_extend(self, exec_ctx: Context):
         listA = exec_ctx.symbol_table.get("listA")
         listB = exec_ctx.symbol_table.get("listB")
 
@@ -300,6 +300,42 @@ class BuiltInFunction(BaseFunction):
         return RTResult().success(Null.null)
 
     execute_extend.arg_names = ["listA", "listB"]
+
+    def execute_replace(self, exec_ctx):
+        string = exec_ctx.symbol_table.get("string")
+        value = exec_ctx.symbol_table.get("value")
+        with_val = exec_ctx.symbol_table.get("with")
+
+        if not isinstance(string, String):
+            return RTResult().failure(
+                RTError(
+                    self.pos_start,
+                    self.pos_end,
+                    "First argument of 'replace' must be string",
+                    exec_ctx,
+                )
+            )
+        if not isinstance(value, String):
+            return RTResult().failure(
+                RTError(
+                    self.pos_start,
+                    self.pos_end,
+                    "Second argument of 'replace' must be string",
+                    exec_ctx,
+                )
+            )
+        if not isinstance(with_val, String):
+            return RTResult().failure(
+                RTError(
+                    self.pos_start,
+                    self.pos_end,
+                    "Third argument of 'replace' must be string",
+                    exec_ctx,
+                )
+            )
+        val = string.value.replace(value.value, with_val.value)
+        return RTResult().success(String(val))
+    execute_replace.arg_names = ["string", "value", "with"]
 
     def execute_len(self, exec_ctx):
         value_ = exec_ctx.symbol_table.get("value")
@@ -940,6 +976,30 @@ class BuiltInFunction(BaseFunction):
         return RTResult().success(String(VERSION))
 
     execute_version.arg_names = []
+    
+    def execute_error(self, exec_ctx):
+        msg = exec_ctx.symbol_table.get("message")
+
+        if not isinstance(msg, String):
+            return RTResult().failure(
+                RTError(
+                    self.pos_start,
+                    self.pos_end,
+                    "First argument for 'split' must be a string",
+                    exec_ctx,
+                )
+            )
+        
+        return RTResult().failure(
+            RTError(
+                self.pos_start,
+                self.pos_end,
+                msg,
+                exec_ctx
+            )
+        )
+
+    execute_error.arg_names = ["message"]
 
     def execute_split(self, exec_ctx):
         value = exec_ctx.symbol_table.get("string")
@@ -1193,7 +1253,6 @@ class Parser:
             return res.success(VarAssignNode(var_name, expr))
 
 
-
         if self.current_tok.matches(TT_KEYWORD, "import"):
             res.register_advancement()
             self.advance()
@@ -1217,10 +1276,6 @@ class Parser:
             self.advance()
             return res.success(ImportNode(module))
 
-
-            
-
-
         node = res.register(
             self.bin_op(self.comp_expr, ((TT_KEYWORD, "and"), (TT_KEYWORD, "or")))
         )
@@ -1233,9 +1288,6 @@ class Parser:
                     "Expected 'var', 'if', 'for', 'while', 'func', int, float, identifier, '+', '-', '(', '[' or 'not'",
                 )
             )
-
-
-        
 
         return res.success(node)
 
@@ -1253,7 +1305,7 @@ class Parser:
             return res.success(UnaryOpNode(op_tok, node))
 
         node = res.register(
-            self.bin_op(self.arith_expr, (TT_EE, TT_NE, TT_LT, TT_GT, TT_LTE, TT_GTE, TT_DOT))
+            self.bin_op(self.arith_expr, (TT_EE, TT_NE, TT_LT, TT_GT, TT_LTE, TT_GTE))
         )
 
         if res.error:
@@ -1271,7 +1323,7 @@ class Parser:
         return self.bin_op(self.term, (TT_PLUS, TT_MINUS))
 
     def term(self):
-        return self.bin_op(self.factor, (TT_MUL, TT_DIV, TT_MOD))
+        return self.bin_op(self.factor, (TT_MUL, TT_DIV, TT_MOD, TT_DOT))
 
     def factor(self):
         res = ParseResult()
@@ -2106,12 +2158,9 @@ class Interpreter:
         i = start_value.value
 
         if step_value.value >= 0:
-
             def condition():
                 return i < end_value.value
-
         else:
-
             def condition():
                 return i > end_value.value
 

@@ -204,7 +204,11 @@ class BreakNode:
         self.pos_start = pos_start
         self.pos_end = pos_end
 
-    
+
+class AccessNode:
+    def __init__(self, obj, index):
+        self.obj = obj
+        self.index = index    
 
 class ImportNode:
     __slots__ = ['module_name_tok', 'file_path', 'pos_start', 'pos_end']

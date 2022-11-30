@@ -1,0 +1,22 @@
+
+func parse_config(config_file)
+config = []
+text = open_file(config_file)
+lines = split(read_stream(text), "\n")
+for i = 0 till len(lines) do
+    line = lines>i
+    if line != "" then
+        vals = split(line, "=")
+        append(config, [replace(vals>0, " ", ""), replace(vals>1, " ", "")])
+    end
+end
+return config
+end
+
+
+config = parse_config("./examples/config.ini") # parsing
+
+# printing
+for i=0 till len(config) do 
+    print((config>i>0) + " = " + (config>i>1))
+end

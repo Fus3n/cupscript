@@ -42,7 +42,7 @@ class Lexer:
             elif self.current_char == "'":
                 self.tokens.append(self.make_string_single())
             elif self.current_char == '+':
-                self.tokens.append(self.make_plus_or_pequal())
+                self.tokens.append(Token(TT_PLUS, pos_start=self.pos))
                 self.advance()
             elif self.current_char == '-':
                 self.tokens.append(self.make_minus_or_arrow())
@@ -284,16 +284,6 @@ class Lexer:
         tok_type = TT_PLUS
         pos_start = self.pos.copy()
         self.advance()
-
-        if self.current_char == '=':
-            self.advance()
-            # check if one step backwar is identfier if it is take that identifer and append it here then add a plus 
-            # trying to do: ident += ident to ident = ident + ident
-            prev_ident = self.previous_token()
-            if prev_ident.type == TT_IDENTIFIER:
-                self.tokens.append(Token(TT_EQ, pos_start=pos_start, pos_end=self.pos))
-                self.tokens.append(prev_ident)
-
 
         return Token(tok_type, pos_start=pos_start, pos_end=self.pos)
 

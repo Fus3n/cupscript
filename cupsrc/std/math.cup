@@ -1,5 +1,3 @@
-# All things related to math 
-
 PI = 3.141592653589793238
 
 func degToRad(deg)
@@ -12,4 +10,35 @@ end
 
 func add(a, b)
     return a + b;
+end
+
+func sub(a, b)
+    return a - b;
+end
+
+func mul(a, b)
+    return a * b;
+end
+
+func div(a, b)
+    return a / b;
+end
+
+# generate a list with random numbers
+func rand_list(size, type)
+    var res = []
+    if type == int then
+        for i=0 till size do
+           var gen = random() * 1000000
+           append(res, gen) 
+        end
+    else if type == float then
+        for i=0 till size do
+            append(res, random()) 
+         end
+    else
+        error("Type not supported for rand_list")
+    end
+
+    return res
 end

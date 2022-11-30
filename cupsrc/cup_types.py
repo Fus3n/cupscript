@@ -563,11 +563,11 @@ class List(Object):
                 self, other, f"Can't multiply a list by a type of '{other.type()}'"
             )
 
-    def dotted_by(self, other):
+    def get_comparison_gt(self, other):
         if isinstance(other, Number):
             try:
                 return self.elements[other.value], None
-            except:
+            except IndexError:
                 return None, RTError(
                     other.pos_start,
                     other.pos_end,

@@ -28,7 +28,7 @@ print(type_of(join)) # >> <function>
 
 ######## File operation #########
 
-var f = open_stream("test.txt")
+var f = open_file("test.txt")
 
 
 if not file_exists(f) then

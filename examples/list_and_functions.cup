@@ -5,13 +5,13 @@
 var l1 = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10.5, true, false, "some text", join_str]
 print(l1) # >> 1, 2, 3, 4, 5, 6, 7, 8, 9, 10.5, 1, 0, some text, <function join_str>
 
-var third_elem = l1.2
+var third_elem = l1>2
 
 print(third_elem) # >> 3
 
 print(len(l1)) # >> 12
 
-var f = l1.len(l1) - 1 
+var f = l1>len(l1) - 1 
 
 
 print(f) # >> <function join_str>
@@ -24,7 +24,7 @@ print(l1) # >> 1, 2, 3, 4, 5, 6, 7, 8, 9, 10.5, 1, 0, some text, <function join_
 
 append(l1, "end of list")
 
-print(l1.len(l1) - 1) # >> end of list
+print(l1>len(l1) - 1) # >> end of list
 
 
 ######## Lists/function #########
